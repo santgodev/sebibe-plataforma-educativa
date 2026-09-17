@@ -17,11 +17,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
   const client = getSupabaseServerClient();
   const { data } = await client
     .from('courses')
     .select('title, short_description')
-    .eq('slug', slug)
+    .eq('slug', decodedSlug)
     .single();
   return {
     title: data?.title || 'Materia',
@@ -35,6 +36,7 @@ export default async function CourseLandingPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
   const client = getSupabaseServerClient();
 
   const { data: course, error } = await client
@@ -48,7 +50,7 @@ export default async function CourseLandingPage({
       )
     `,
     )
-    .eq('slug', slug)
+    .eq('slug', decodedSlug)
     .single();
 
   if (error || !course) {
