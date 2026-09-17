@@ -1,0 +1,63 @@
+/*
+* global.css
+*
+* Global styles for the entire application
+ */
+
+/* Tailwind CSS */
+@import 'tailwindcss';
+
+/* Disable automatic dark mode via media query */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* local styles - update the below if you add a new style */
+@import './theme.css';
+@import './theme.utilities.css';
+@import './shadcn-ui.css';
+@import './markdoc.css';
+@import './makerkit.css';
+
+/* plugins - update the below if you add a new plugin */
+@plugin "tailwindcss-animate";
+
+/* content sources - update the below if you add a new path */
+@source "../../../packages/*/src/**/*.{ts,tsx}";
+@source "../../../packages/features/*/src/**/*.{ts,tsx}";
+@source "../../../packages/billing/*/src/**/*.{ts,tsx}";
+@source "../../../packages/plugins/*/src/**/*.{ts,tsx}";
+@source "../../../packages/cms/*/src/**/*.{ts,tsx}";
+@source "../{app,components,config,lib}/**/*.{ts,tsx}";
+
+
+
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    color-scheme: light !important;
+  }
+
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border, currentColor);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: theme(--color-muted-foreground);
+  }
+
+  /* Fix for Chrome autofill dark mode issues */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: black !important;
+    color: black !important;
+  }
+}

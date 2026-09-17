@@ -1,0 +1,60 @@
+/*
+* shadcn-ui.css
+*
+* Update the below to customize your Shadcn UI CSS Colors.
+* Refer to https://ui.shadcn.com/themes for applying new colors.
+* NB: apply the hsl function to the colors copied from the theme.
+ */
+
+@layer base {
+    :root {
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        --font-heading: var(--font-sans);
+
+        --background: #ffffff;
+        --foreground: #0a0a0a;
+
+        --card: #ffffff;
+        --card-foreground: #0a0a0a;
+
+        --popover: #ffffff;
+        --popover-foreground: #0a0a0a;
+
+        --primary: #facc15;
+        --primary-foreground: #0a0a0a;
+
+        --secondary: #f1f5f9;
+        --secondary-foreground: #0f172a;
+
+        --muted: #f1f5f9;
+        --muted-foreground: #64748b;
+
+        --accent: #f1f5f9;
+        --accent-foreground: #0f172a;
+
+        --destructive: #ef4444;
+        --destructive-foreground: #ffffff;
+
+        --border: #e2e8f0;
+        --input: #e2e8f0;
+        --ring: #0a0a0a;
+
+        --radius: 0.5rem;
+
+        --chart-1: #fb923c;
+        --chart-2: #0d9488;
+        --chart-3: #166534;
+        --chart-4: #fef08a;
+        --chart-5: #fed7aa;
+
+        --sidebar-background: #172554;
+        --sidebar-foreground: #ffffff;
+        --sidebar-primary: #eab308;
+        --sidebar-primary-foreground: #172554;
+        --sidebar-accent: #1e3a8a;
+        --sidebar-accent-foreground: #facc15;
+        --sidebar-border: #172554;
+        --sidebar-ring: #eab308;
+    }
+
+}
