@@ -270,7 +270,7 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                 </div>
                 
                 {q.type !== 'true_false' && (
-                  <Button variant="outline" size="sm" onClick={() => addAnswer(qIndex)} className="mt-3 text-xs">
+                  <Button variant="outline" size="sm" onClick={() => addAnswer(qIndex)} className="mt-3 text-xs text-slate-900">
                     <PlusCircle className="w-3 h-3 mr-1"/> Añadir Opción
                   </Button>
                 )}

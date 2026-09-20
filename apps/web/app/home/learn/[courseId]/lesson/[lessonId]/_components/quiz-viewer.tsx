@@ -9,18 +9,23 @@ import { Button } from '@kit/ui/button';
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 
-import { getFullActivityAction, submitActivityAttemptAction } from '~/lib/lms/server/actions/activity.actions';
+import { getFullActivityAction, submitActivityAttemptAction, getActivityAttemptsAction } from '~/lib/lms/server/actions/activity.actions';
 
 export function QuizViewer({ activityId, courseId }: { activityId: string, courseId: string }) {
   const [activity, setActivity] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [result, setResult] = useState<any>(null);
   const [isPending, startTransition] = useTransition();
+  const [isStarted, setIsStarted] = useState(false);
+  const [pastAttempts, setPastAttempts] = useState<any[]>([]);
 
   useEffect(() => {
     startTransition(async () => {
       try {
-        const data = await getFullActivityAction({ id: activityId });
+        const [data, attemptsData] = await Promise.all([
+          getFullActivityAction({ id: activityId }),
+          getActivityAttemptsAction({ activity_id: activityId }).catch(() => [])
+        ]);
         // sort questions
         if (data?.activity_questions) {
           data.activity_questions.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
@@ -31,6 +36,9 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           });
         }
         setActivity(data);
+        if (attemptsData && attemptsData.length > 0) {
+          setPastAttempts(attemptsData);
+        }
       } catch (e) {
         console.error(e);
         toast.error('Error al cargar el cuestionario');
@@ -83,16 +91,102 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
     });
   };
 
+  if (!isStarted) {
+    return (
+      <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-12 shadow-sm text-center">
+        <HelpCircle className="h-16 w-16 text-purple-600 mx-auto mb-6" />
+        <h2 className="text-3xl font-bold mb-4">{activity.title}</h2>
+        {activity.description && (
+          <p className="text-muted-foreground mb-6 text-lg">{activity.description}</p>
+        )}
+        <div className="flex flex-col gap-3 mb-10 max-w-sm mx-auto text-sm text-muted-foreground bg-muted/20 p-6 rounded-xl border text-left">
+          {activity.passing_score !== undefined && (
+            <div className="flex justify-between border-b pb-2">
+              <span className="font-semibold text-foreground">Nota para aprobar:</span>
+              <span>{activity.passing_score}%</span>
+            </div>
+          )}
+          <div className="flex justify-between border-b pb-2">
+            <span className="font-semibold text-foreground">Preguntas:</span>
+            <span>{questions.length}</span>
+          </div>
+          <div className="flex justify-between border-b pb-2">
+            <span className="font-semibold text-foreground">Tiempo límite:</span>
+            <span>{activity.time_limit_minutes ? `${activity.time_limit_minutes} minutos` : 'Sin límite'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-semibold text-foreground">Intentos permitidos:</span>
+            <span>{activity.max_attempts ? activity.max_attempts : 'Ilimitados'}</span>
+          </div>
+        </div>
+
+        {pastAttempts.length > 0 && (() => {
+          const latestAttempt = pastAttempts[0];
+          const passed = latestAttempt.score >= (activity.passing_score || 0);
+          return (
+          <div className="mb-10 p-6 bg-slate-50 border border-slate-200 rounded-xl max-w-sm mx-auto text-center shadow-sm">
+            <h3 className="font-bold text-lg text-slate-800 mb-3">Tus Resultados</h3>
+            <div className="text-4xl font-black mb-2 text-slate-900">
+               {(latestAttempt.score || 0).toFixed(1)}%
+            </div>
+            <p className={`text-sm font-bold uppercase tracking-wider mb-4 ${passed ? 'text-green-600' : 'text-red-600'}`}>
+               {passed ? 'Aprobado' : 'No aprobado'}
+            </p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground bg-white p-3 rounded-lg border">
+               <span>Intentos realizados:</span>
+               <span className="font-bold text-foreground">{pastAttempts.length} / {activity.max_attempts || '∞'}</span>
+            </div>
+          </div>
+          );
+        })()}
+
+        {(() => {
+          const hasPassed = pastAttempts.some(a => (a.score || 0) >= (activity.passing_score || 0));
+          const reachedMaxAttempts = activity.max_attempts && pastAttempts.length >= activity.max_attempts;
+          
+          if (hasPassed) {
+            return (
+              <div className="text-green-600 font-semibold bg-green-50 p-4 rounded-lg inline-block border border-green-200">
+                ¡Ya has aprobado este cuestionario!
+              </div>
+            );
+          }
+          
+          if (reachedMaxAttempts) {
+            return (
+              <div className="text-red-600 font-semibold bg-red-50 p-4 rounded-lg inline-block border border-red-200">
+                Has alcanzado el límite máximo de intentos permitidos.
+              </div>
+            );
+          }
+          
+          return (
+            <Button size="lg" className="px-12 text-lg h-14" onClick={() => setIsStarted(true)}>
+              {pastAttempts.length > 0 ? 'Reintentar Cuestionario' : 'Comenzar Cuestionario'}
+            </Button>
+          );
+        })()}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-8 shadow-sm">
-      <div className="mb-8 flex items-center gap-3 border-b pb-4">
-        <HelpCircle className="h-8 w-8 text-purple-600" />
-        <div>
-          <h2 className="text-foreground text-2xl font-bold">{activity.title}</h2>
-          {activity.passing_score && (
-            <p className="text-sm text-muted-foreground">Nota para aprobar: {activity.passing_score}%</p>
-          )}
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div className="flex items-center gap-3">
+          <HelpCircle className="h-8 w-8 text-purple-600" />
+          <div>
+            <h2 className="text-foreground text-2xl font-bold">{activity.title}</h2>
+            {activity.passing_score && (
+              <p className="text-sm text-muted-foreground">Nota para aprobar: {activity.passing_score}%</p>
+            )}
+          </div>
         </div>
+        {activity.time_limit_minutes && !result && (
+          <div className="bg-muted/30 px-4 py-2 rounded-lg font-mono text-lg font-semibold border">
+            {activity.time_limit_minutes}:00
+          </div>
+        )}
       </div>
 
       <div className="space-y-10">
@@ -213,11 +307,10 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
             <Button
               variant="outline"
               onClick={() => {
-                setAnswers({});
-                setResult(null);
+                window.location.reload();
               }}
             >
-              Reintentar Cuestionario
+              Volver al inicio
             </Button>
           </div>
         )}

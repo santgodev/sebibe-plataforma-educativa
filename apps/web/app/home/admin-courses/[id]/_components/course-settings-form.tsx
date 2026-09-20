@@ -106,7 +106,7 @@ export function CourseSettingsForm({ course }: { course: any }) {
         onSubmit={form.handleSubmit(onSubmit)}
         className="max-w-2xl space-y-6"
       >
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6">
           <FormField
             control={form.control}
             name="title"
@@ -116,23 +116,6 @@ export function CourseSettingsForm({ course }: { course: any }) {
                 <FormControl>
                   <Input
                     placeholder="Ej. Introducción al Antiguo Testamento"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="slug"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Slug (URL amistosa)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="ej-introduccion-antiguo-testamento"
                     {...field}
                   />
                 </FormControl>
@@ -181,32 +164,7 @@ export function CourseSettingsForm({ course }: { course: any }) {
           )}
         />
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="level"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nivel</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un nivel" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="beginner">Principiante</SelectItem>
-                    <SelectItem value="intermediate">Intermedio</SelectItem>
-                    <SelectItem value="advanced">Avanzado</SelectItem>
-                    <SelectItem value="all_levels">
-                      Todos los niveles
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 
           <FormField
             control={form.control}

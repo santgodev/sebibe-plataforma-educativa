@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ExternalLink, FileText, HelpCircle } from 'lucide-react';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 import { ProgressService } from '~/lib/lms/server/services/progress.service';
 import { extractYouTubeId } from '~/lib/lms/utils/youtube';
@@ -46,9 +47,23 @@ export default async function LessonPage({
     .eq('lesson_id', lessonId)
     .order('order_index', { ascending: true });
 
+  // Load direct activity for quiz-type lessons that don't use blocks
+  const { data: directActivity } = await client
+    .from('activities')
+    .select('id')
+    .eq('lesson_id', lessonId)
+    .maybeSingle();
+
   // Load progress
   const progress = await progressService.getLessonProgress(user.id, lessonId);
   const isCompleted = !!progress?.is_completed;
+
+  // Fetch current user account details
+  const { data: currentUserAccount } = await client
+    .from('accounts')
+    .select('name, picture_url')
+    .eq('id', user.id)
+    .single();
 
   // Load notes
   const { data: notes } = await client
@@ -68,11 +83,16 @@ export default async function LessonPage({
   let comments: any[] = [];
   if (commentsData && commentsData.length > 0) {
     const userIds = commentsData.map(c => c.user_id);
-    // Fetch accounts separately since the foreign key relation might not be defined for PostgREST
-    const { data: accountsData } = await client
+    // Fetch accounts separately with admin client to bypass RLS since users can't read other users' profiles
+    const adminClient = getSupabaseServerAdminClient();
+    const { data: accountsData, error: accountsError } = await adminClient
       .from('accounts')
       .select('id, name, picture_url')
       .in('id', userIds);
+      
+    if (accountsError) {
+      console.error('Error fetching accounts for comments (check SUPABASE_SERVICE_ROLE_KEY):', accountsError);
+    }
     
     const accountMap = new Map((accountsData || []).map(a => [a.id, a]));
 
@@ -231,6 +251,18 @@ export default async function LessonPage({
       );
     }
 
+    if (type === 'quiz' && directActivity?.id) {
+      return (
+        <div className="bg-card rounded-xl border p-8 shadow-sm mt-8">
+          <div className="mb-8 flex items-center gap-3 text-purple-600">
+            <HelpCircle className="h-8 w-8" />
+            <h3 className="text-2xl font-semibold">Cuestionario</h3>
+          </div>
+          <QuizViewer activityId={directActivity.id} courseId={courseId} />
+        </div>
+      );
+    }
+
     if (content) {
       return (
         <div className="prose max-w-none">
@@ -273,6 +305,8 @@ export default async function LessonPage({
         <LessonComments
           lessonId={lessonId}
           currentUserId={user.id}
+          currentUserDisplayName={currentUserAccount?.name || 'Tú'}
+          currentUserAvatarUrl={currentUserAccount?.picture_url || null}
           canModerate={canModerate}
           initialComments={comments as any}
         />

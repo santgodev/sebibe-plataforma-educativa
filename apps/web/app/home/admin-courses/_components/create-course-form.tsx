@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,6 +44,20 @@ export function CreateCourseForm() {
     },
   });
 
+  const watchTitle = form.watch('title');
+
+  useEffect(() => {
+    if (watchTitle) {
+      const generatedSlug = watchTitle
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      form.setValue('slug', generatedSlug, { shouldValidate: true });
+    }
+  }, [watchTitle, form]);
+
   const onSubmit = async (data: z.infer<typeof CreateCourseSchema>) => {
     try {
       const result = await createCourseAction(data);
@@ -74,22 +89,6 @@ export function CreateCourseForm() {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="slug"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Slug (URL amistosa)</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="ej. introduccion-antiguo-testamento"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <FormField
           control={form.control}
@@ -108,33 +107,7 @@ export function CreateCourseForm() {
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="level"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nivel</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona el nivel" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="beginner">Principiante</SelectItem>
-                    <SelectItem value="intermediate">Intermedio</SelectItem>
-                    <SelectItem value="advanced">Avanzado</SelectItem>
-                    <SelectItem value="all_levels">
-                      Todos los niveles
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
+        <div className="grid grid-cols-1 gap-4">
           <FormField
             control={form.control}
             name="duration_minutes"

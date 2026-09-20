@@ -36,7 +36,14 @@ export default async function EditLessonPage({ params }: EditLessonPageProps) {
     console.error('Error fetching blocks:', blocksError);
   }
 
+  const { data: activity } = await client
+    .from('activities')
+    .select('id')
+    .eq('lesson_id', lessonId)
+    .limit(1)
+    .maybeSingle();
+
   return (
-    <LessonEditor courseId={id} lesson={lesson} initialBlocks={blocks || []} />
+    <LessonEditor courseId={id} lesson={lesson} initialBlocks={blocks || []} initialActivityId={activity?.id} />
   );
 }

@@ -21,8 +21,8 @@ export const ActivityQuestionSchema = z.object({
   question_text: z.string().min(1),
   type: QuestionTypeSchema,
   points: z.number().int().min(1).default(1),
-  order_index: z.number().int().optional(),
-  feedback_text: z.string().optional(),
+  order_index: z.number().int().nullable().optional(),
+  feedback_text: z.string().nullable().optional(),
   answers: z.array(ActivityAnswerSchema).min(1),
 });
 
@@ -31,8 +31,8 @@ const BaseActivitySchema = z.object({
   course_id: z.string().uuid().optional(),
   type: z.enum(['quick_quiz', 'reflection', 'practical', 'final_eval']),
   title: z.string().min(3).max(255),
-  description: z.string().optional(),
-  instructions: z.string().optional(),
+  description: z.string().nullable().optional(),
+  instructions: z.string().nullable().optional(),
   passing_score: z.number().int().min(0).max(100).default(70),
   max_attempts: z.number().int().min(1).optional(),
   time_limit_minutes: z.number().int().min(0).optional(),

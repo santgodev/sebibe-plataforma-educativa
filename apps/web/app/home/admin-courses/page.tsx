@@ -19,7 +19,6 @@ export default async function AdminCoursesPage() {
   const { data: courses, error } = await client
     .from('courses')
     .select('*')
-    .eq('instructor_id', user.id)
     .order('created_at', { ascending: false });
   return (
     <>

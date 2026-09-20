@@ -25,6 +25,8 @@ interface Comment {
 interface LessonCommentsProps {
   lessonId: string;
   currentUserId: string;
+  currentUserDisplayName?: string;
+  currentUserAvatarUrl?: string | null;
   canModerate: boolean; // true if admin or instructor
   initialComments: Comment[];
 }
@@ -63,6 +65,8 @@ function Avatar({ name, url }: { name: string | null; url: string | null }) {
 export function LessonComments({
   lessonId,
   currentUserId,
+  currentUserDisplayName = 'Tú',
+  currentUserAvatarUrl = null,
   canModerate,
   initialComments,
 }: LessonCommentsProps) {
@@ -85,8 +89,8 @@ export function LessonComments({
         content: (saved as any).content,
         created_at: (saved as any).created_at,
         user_id: currentUserId,
-        display_name: 'Tú',
-        avatar_url: null,
+        display_name: currentUserDisplayName,
+        avatar_url: currentUserAvatarUrl,
       };
       setComments((prev) => [optimistic, ...prev]);
       setNewComment('');
@@ -120,7 +124,7 @@ export function LessonComments({
 
       {/* New comment box */}
       <div className="mb-8 flex gap-3">
-        <Avatar name="Tú" url={null} />
+        <Avatar name={currentUserDisplayName} url={currentUserAvatarUrl} />
         <div className="flex-1">
           <Textarea
             placeholder="Escribe una pregunta o comentario sobre esta lección..."

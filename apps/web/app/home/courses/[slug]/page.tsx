@@ -77,9 +77,6 @@ export default async function CourseLandingPage({
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
-              <span className="bg-primary/20 text-primary-foreground border-primary/30 rounded-full border px-3 py-1 text-xs font-bold tracking-wider uppercase">
-                {course.level?.replace('_', ' ') || 'General'}
-              </span>
               <span className="text-sm font-medium text-gray-300">
                 {course.duration_minutes} minutos
               </span>
@@ -129,7 +126,7 @@ export default async function CourseLandingPage({
         <div className="space-y-12 md:col-span-2">
           {/* About */}
           <div>
-            <h2 className="mb-6 text-2xl font-bold">Acerca de esta materia</h2>
+            <h2 className="mb-6 text-2xl font-bold text-slate-900">Acerca de esta materia</h2>
             <div className="prose text-muted-foreground max-w-none leading-relaxed">
               <p>{course.long_description || course.short_description}</p>
             </div>
@@ -139,7 +136,7 @@ export default async function CourseLandingPage({
           <div id="temario">
             <div className="mb-6 flex items-end justify-between">
               <div>
-                <h2 className="text-2xl font-bold">Contenido de la materia</h2>
+                <h2 className="text-2xl font-bold text-slate-900">Contenido de la materia</h2>
                 <p className="text-muted-foreground mt-1">
                   {modules.length} módulos • {totalLessons} clases
                 </p>
@@ -160,7 +157,7 @@ export default async function CourseLandingPage({
                     >
                       <AccordionTrigger className="py-4 hover:no-underline">
                         <div className="flex flex-col items-start gap-1 text-left">
-                          <span className="text-foreground group-hover:text-primary text-base font-bold transition-colors">
+                          <span className="text-slate-900 group-hover:text-primary text-base font-bold transition-colors">
                             {i + 1}. {mod.title}
                           </span>
                           <span className="text-muted-foreground text-xs font-normal">
@@ -193,7 +190,7 @@ export default async function CourseLandingPage({
                               <div className="flex-1">
                                 <Link
                                   href={`/home/learn/${course.id}/lesson/${lesson.id}`}
-                                  className="text-foreground group-hover:text-primary block font-medium transition-colors"
+                                  className="text-slate-900 group-hover:text-primary block font-medium transition-colors"
                                 >
                                   {lesson.title}
                                 </Link>
@@ -214,7 +211,7 @@ export default async function CourseLandingPage({
         {/* Right Sidebar (Sticky Info) */}
         <div className="md:col-span-1">
           <div className="bg-card sticky top-24 space-y-6 rounded-xl border p-6 shadow-sm">
-            <h3 className="text-lg font-bold">¿Qué incluye esta materia?</h3>
+            <h3 className="text-lg font-bold text-slate-900">¿Qué incluye esta materia?</h3>
             <ul className="space-y-4">
               <li className="text-muted-foreground flex items-center gap-3">
                 <PlayCircle className="text-primary h-5 w-5" />
@@ -226,10 +223,7 @@ export default async function CourseLandingPage({
                 <FileText className="text-primary h-5 w-5" />
                 <span>{totalLessons} recursos descargables</span>
               </li>
-              <li className="text-muted-foreground flex items-center gap-3">
-                <CheckCircle className="text-primary h-5 w-5" />
-                <span>Acceso de por vida</span>
-              </li>
+
             </ul>
 
             {firstLessonId && (

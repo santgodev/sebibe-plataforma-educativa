@@ -25,6 +25,7 @@ import { updateLessonAction } from '~/lib/lms/server/actions/lesson.actions';
 import { extractYouTubeId } from '~/lib/lms/utils/youtube';
 
 import { QuizBuilder } from './quiz-builder';
+import { QuizViewer } from '../../../learn/[courseId]/lesson/[lessonId]/_components/quiz-viewer';
 
 interface Lesson {
   id: string;
@@ -38,13 +39,17 @@ interface Lesson {
 export function LessonEditor({
   courseId,
   lesson,
+  initialBlocks,
+  initialActivityId,
 }: {
   courseId: string;
   lesson: Lesson;
   initialBlocks?: any[];
+  initialActivityId?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [activityId, setActivityId] = useState<string | undefined>(initialActivityId);
 
   const [editLessonTitle, setEditLessonTitle] = useState(lesson.title);
   const [editLessonType, setEditLessonType] = useState<string>(lesson.type || 'text');
@@ -235,7 +240,11 @@ export function LessonEditor({
                     <QuizBuilder
                       courseId={courseId}
                       lessonId={lesson.id}
-                      onSaved={(id) => console.log('Saved activity', id)}
+                      activityId={activityId}
+                      onSaved={(id) => {
+                        console.log('Saved activity', id);
+                        setActivityId(id);
+                      }}
                     />
                   </div>
                 </>
@@ -364,14 +373,19 @@ export function LessonEditor({
 
               {editLessonType === 'quiz' && (
                 <div className="bg-card rounded-xl border p-8 shadow-sm">
-                  <div className="mb-8 flex items-center gap-3 text-purple-600">
-                    <HelpCircle className="h-8 w-8" />
-                    <h3 className="text-2xl font-semibold">Cuestionario</h3>
-                  </div>
-
-                  <p className="text-muted-foreground italic">
-                    La vista previa de cuestionarios interactivos se muestra directamente en el constructor.
-                  </p>
+                  {activityId ? (
+                    <QuizViewer activityId={activityId} courseId={courseId} />
+                  ) : (
+                    <>
+                      <div className="mb-8 flex items-center gap-3 text-purple-600">
+                        <HelpCircle className="h-8 w-8" />
+                        <h3 className="text-2xl font-semibold">Cuestionario</h3>
+                      </div>
+                      <p className="text-muted-foreground italic">
+                        Guarda el cuestionario en la pestaña "Editor de Contenido" para ver la vista previa.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>

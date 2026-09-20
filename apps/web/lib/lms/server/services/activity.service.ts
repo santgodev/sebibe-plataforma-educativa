@@ -15,6 +15,24 @@ export class ActivityService {
     return this.repository.findByLessonId(lessonId);
   }
 
+  async getActivityAttempts(activityId: string, studentId: string) {
+    const { getSupabaseServerAdminClient } = await import('@kit/supabase/server-admin-client');
+    const adminClient = getSupabaseServerAdminClient();
+    
+    const { data, error } = await adminClient
+      .from('activity_attempts')
+      .select('*')
+      .eq('activity_id', activityId)
+      .eq('student_id', studentId)
+      .order('completed_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching activity attempts:', error);
+      throw error;
+    }
+    return data;
+  }
+
   async getFinalEvaluationsForCourse(courseId: string) {
     // Usually final evaluations are attached directly to the course
     return this.repository.findByCourseId(courseId);
@@ -58,18 +76,23 @@ export class ActivityService {
   async evaluateQuiz(activityId: string, studentId: string, submittedAnswers: Record<string, any>) {
     const fullActivity = await this.repository.getFullActivity(activityId);
     
+    // Get current attempt count
+    const { count } = await this.repository['client']
+      .from('activity_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('activity_id', activityId)
+      .eq('student_id', studentId);
+      
+    const currentAttempts = count || 0;
+
     // Check max attempts
     if (fullActivity.max_attempts) {
-      const { count } = await this.repository['client']
-        .from('activity_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('activity_id', activityId)
-        .eq('student_id', studentId);
-        
-      if (count && count >= fullActivity.max_attempts) {
+      if (currentAttempts >= fullActivity.max_attempts) {
         throw new Error('Maximum attempts reached');
       }
     }
+    
+    const attemptNumber = currentAttempts + 1;
 
     let totalPoints = 0;
     let earnedPoints = 0;
@@ -119,14 +142,19 @@ export class ActivityService {
     const passed = scorePercentage >= (fullActivity.passing_score || 0);
 
     // Save attempt
-    await this.repository['client'].from('activity_attempts').insert({
+    const { error: insertError } = await this.repository['client'].from('activity_attempts').insert({
       activity_id: activityId,
       student_id: studentId,
+      attempt_number: attemptNumber,
       score: scorePercentage,
-      passed,
       answers_json: submittedAnswers,
-      status: 'completed'
+      completed_at: new Date().toISOString()
     });
+
+    if (insertError) {
+      console.error('Error saving activity attempt:', insertError);
+      throw new Error(`Failed to save attempt: ${insertError.message}`);
+    }
 
     return {
       score: scorePercentage,

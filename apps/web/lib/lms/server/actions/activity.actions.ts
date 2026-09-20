@@ -65,6 +65,20 @@ export const getFullActivityAction = enhanceAction(
   },
 );
 
+export const getActivityAttemptsAction = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+    const auth = await requireUser(client);
+    if (!auth.data) throw new Error('Unauthorized');
+
+    const service = new ActivityService(client);
+    return service.getActivityAttempts(data.activity_id, auth.data.id);
+  },
+  {
+    schema: z.object({ activity_id: z.string().uuid() }),
+  },
+);
+
 export const submitActivityAttemptAction = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
