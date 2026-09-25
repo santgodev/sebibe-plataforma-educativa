@@ -15,12 +15,16 @@ interface Props {
   courseId: string;
   lessonId: string;
   isAlreadyCompleted?: boolean;
+  isDisabled?: boolean;
+  disabledReason?: string;
 }
 
 export function CompleteLessonButton({
   courseId,
   lessonId,
   isAlreadyCompleted = false,
+  isDisabled = false,
+  disabledReason = 'No puedes completar esta lección aún',
 }: Props) {
   const [isPending, setIsPending] = useState(false);
   const [completed, setCompleted] = useState(isAlreadyCompleted);
@@ -56,9 +60,10 @@ export function CompleteLessonButton({
   return (
     <Button
       onClick={handleComplete}
-      disabled={isPending || completed}
+      disabled={isPending || completed || isDisabled}
       variant={completed ? 'secondary' : 'default'}
       className="shrink-0 gap-2 font-medium shadow-sm"
+      title={isDisabled ? disabledReason : undefined}
     >
       {isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

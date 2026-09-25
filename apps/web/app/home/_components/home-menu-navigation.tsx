@@ -7,7 +7,11 @@ import { AppLogo } from '~/components/app-logo';
 import { ProfileAccountDropdownContainer } from '~/components/personal-account-dropdown-container';
 import { navigationConfig } from '~/config/navigation.config';
 
-export function HomeMenuNavigation() {
+export function HomeMenuNavigation({ role }: { role?: string }) {
+  const isAdministrador = role === 'administrador';
+  const isProfesor = role === 'profesor';
+  const isStaff = isAdministrador || isProfesor;
+
   const routes = navigationConfig.routes.reduce<
     Array<{
       path: string;
@@ -25,7 +29,19 @@ export function HomeMenuNavigation() {
     }
 
     return [...acc, item];
-  }, []);
+  }, []).filter(route => {
+    if (!isStaff) {
+      const adminPaths = ['/home/admin-cohorts', '/home/admin-courses', '/home/admin-users'];
+      if (adminPaths.includes(route.path)) {
+        return false;
+      }
+    } else if (isProfesor) {
+      if (route.path === '/home/admin-users') {
+        return false;
+      }
+    }
+    return true;
+  });
 
   return (
     <div className={'flex w-full flex-1 justify-between'}>

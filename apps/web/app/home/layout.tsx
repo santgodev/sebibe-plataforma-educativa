@@ -12,6 +12,7 @@ import { SidebarProvider } from '@kit/ui/shadcn-sidebar';
 
 import { AppLogo } from '~/components/app-logo';
 import { navigationConfig } from '~/config/navigation.config';
+import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { withI18n } from '~/lib/i18n/with-i18n';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
@@ -22,17 +23,25 @@ import { HomeSidebar } from './_components/home-sidebar';
 
 function HomeLayout({ children }: React.PropsWithChildren) {
   const style = use(getLayoutStyle());
+  const [user] = use(Promise.all([requireUserInServerComponent()]));
+  const role = use(getUserRole(user.id));
 
   if (style === 'sidebar') {
-    return <SidebarLayout>{children}</SidebarLayout>;
+    return <SidebarLayout role={role}>{children}</SidebarLayout>;
   }
 
-  return <HeaderLayout>{children}</HeaderLayout>;
+  return <HeaderLayout role={role}>{children}</HeaderLayout>;
 }
 
 export default withI18n(HomeLayout);
 
-function SidebarLayout({ children }: React.PropsWithChildren) {
+async function getUserRole(userId: string) {
+  const client = getSupabaseServerClient();
+  const { data } = await client.from('user_roles').select('role').eq('id', userId).single();
+  return data?.role || 'student';
+}
+
+function SidebarLayout({ children, role }: React.PropsWithChildren<{ role?: string }>) {
   const sidebarMinimized = navigationConfig.sidebarCollapsed;
   const [user] = use(Promise.all([requireUserInServerComponent()]));
 
@@ -40,11 +49,11 @@ function SidebarLayout({ children }: React.PropsWithChildren) {
     <SidebarProvider defaultOpen={sidebarMinimized}>
       <Page style={'sidebar'}>
         <PageNavigation>
-          <HomeSidebar user={user} />
+          <HomeSidebar user={user} role={role} />
         </PageNavigation>
 
         <PageMobileNavigation className={'flex items-center justify-between'}>
-          <MobileNavigation />
+          <MobileNavigation role={role} />
         </PageMobileNavigation>
 
         {children}
@@ -53,15 +62,15 @@ function SidebarLayout({ children }: React.PropsWithChildren) {
   );
 }
 
-function HeaderLayout({ children }: React.PropsWithChildren) {
+function HeaderLayout({ children, role }: React.PropsWithChildren<{ role?: string }>) {
   return (
     <Page style={'header'}>
       <PageNavigation>
-        <HomeMenuNavigation />
+        <HomeMenuNavigation role={role} />
       </PageNavigation>
 
       <PageMobileNavigation className={'flex items-center justify-between'}>
-        <MobileNavigation />
+        <MobileNavigation role={role} />
       </PageMobileNavigation>
 
       {children}
@@ -69,12 +78,12 @@ function HeaderLayout({ children }: React.PropsWithChildren) {
   );
 }
 
-function MobileNavigation() {
+function MobileNavigation({ role }: { role?: string }) {
   return (
     <>
       <AppLogo />
 
-      <HomeMobileNavigation />
+      <HomeMobileNavigation role={role} />
     </>
   );
 }

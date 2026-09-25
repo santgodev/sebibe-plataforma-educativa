@@ -15,10 +15,17 @@ interface Props {
   courseId: string;
   lessonId: string;
   nextLessonId: string | null;
-  isAlreadyCompleted: boolean;
+  isAlreadyCompleted?: boolean;
+  isDisabled?: boolean;
 }
 
-export function NextLessonButton({ courseId, lessonId, nextLessonId, isAlreadyCompleted }: Props) {
+export function NextLessonButton({
+  courseId,
+  lessonId,
+  nextLessonId,
+  isAlreadyCompleted = false,
+  isDisabled = false,
+}: Props) {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
@@ -45,9 +52,10 @@ export function NextLessonButton({ courseId, lessonId, nextLessonId, isAlreadyCo
   return (
     <Button
       onClick={handleNext}
-      disabled={isPending}
+      disabled={isPending || isDisabled}
       className="gap-2 bg-slate-700 text-white hover:bg-slate-800"
       size="lg"
+      title={isDisabled ? 'Debes aprobar el cuestionario primero' : undefined}
     >
       {isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

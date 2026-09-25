@@ -22,10 +22,35 @@ import { navigationConfig } from '~/config/navigation.config';
  * Mobile navigation for the home page
  * @constructor
  */
-export function HomeMobileNavigation() {
+export function HomeMobileNavigation({ role }: { role?: string }) {
   const signOut = useSignOut();
+  const isAdministrador = role === 'administrador';
+  const isProfesor = role === 'profesor';
+  const isStaff = isAdministrador || isProfesor;
 
-  const Links = navigationConfig.routes.map((item, index) => {
+  const filteredRoutes = navigationConfig.routes.map(group => {
+    if ('children' in group) {
+      return {
+        ...group,
+        children: group.children?.filter(child => {
+          if (!isStaff) {
+            const adminPaths = ['/home/admin-cohorts', '/home/admin-courses', '/home/admin-users'];
+            if (child.path && adminPaths.includes(child.path)) {
+              return false;
+            }
+          } else if (isProfesor) {
+            if (child.path === '/home/admin-users') {
+              return false;
+            }
+          }
+          return true;
+        })
+      };
+    }
+    return group;
+  });
+
+  const Links = filteredRoutes.map((item, index) => {
     if ('children' in item) {
       return item.children.map((child) => {
         return (

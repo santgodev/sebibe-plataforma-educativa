@@ -1,4 +1,4 @@
-import { CalendarDays, GraduationCap, Home, PencilRuler, User, Users } from 'lucide-react';
+import { CalendarDays, GraduationCap, Home, PencilRuler, User, Users, FileText } from 'lucide-react';
 import { z } from 'zod';
 
 import { NavigationConfigSchema } from '@kit/ui/navigation-schema';
@@ -16,6 +16,11 @@ const routes = [
         path: '/home/courses',
         Icon: <Home className={iconClasses} />,
         end: true,
+      },
+      {
+        label: 'Notas',
+        path: '/home/grades',
+        Icon: <FileText className={iconClasses} />,
       },
       {
         label: 'Gestión de Cohortes',

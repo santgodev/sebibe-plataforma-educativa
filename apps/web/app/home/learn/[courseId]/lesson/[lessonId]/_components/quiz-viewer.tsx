@@ -94,7 +94,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
   if (!isStarted) {
     return (
       <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-12 shadow-sm text-center">
-        <HelpCircle className="h-16 w-16 text-purple-600 mx-auto mb-6" />
+        <HelpCircle className="h-16 w-16 text-primary mx-auto mb-6" />
         <h2 className="text-3xl font-bold mb-4">{activity.title}</h2>
         {activity.description && (
           <p className="text-muted-foreground mb-6 text-lg">{activity.description}</p>
@@ -103,7 +103,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           {activity.passing_score !== undefined && (
             <div className="flex justify-between border-b pb-2">
               <span className="font-semibold text-foreground">Nota para aprobar:</span>
-              <span>{activity.passing_score}%</span>
+              <span>{activity.passing_score ? (activity.passing_score / 20).toFixed(1) : '0.0'} / 5.0</span>
             </div>
           )}
           <div className="flex justify-between border-b pb-2">
@@ -124,17 +124,19 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           const latestAttempt = pastAttempts[0];
           const passed = latestAttempt.score >= (activity.passing_score || 0);
           return (
-          <div className="mb-10 p-6 bg-slate-50 border border-slate-200 rounded-xl max-w-sm mx-auto text-center shadow-sm">
-            <h3 className="font-bold text-lg text-slate-800 mb-3">Tus Resultados</h3>
-            <div className="text-4xl font-black mb-2 text-slate-900">
-               {(latestAttempt.score || 0).toFixed(1)}%
+          <div className="mb-10 p-6 bg-muted/10 border rounded-xl max-w-sm mx-auto text-center shadow-sm">
+            <h3 className="font-bold text-lg text-foreground mb-3">Tus Resultados</h3>
+            <div className="text-4xl font-black mb-2 text-foreground">
+               {((latestAttempt.score || 0) / 20).toFixed(1)} / 5.0
             </div>
-            <p className={`text-sm font-bold uppercase tracking-wider mb-4 ${passed ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-sm font-bold uppercase tracking-wider mb-4 ${passed ? 'text-primary' : 'text-destructive'}`}>
                {passed ? 'Aprobado' : 'No aprobado'}
             </p>
             <div className="flex items-center justify-between text-xs text-muted-foreground bg-white p-3 rounded-lg border">
                <span>Intentos realizados:</span>
-               <span className="font-bold text-foreground">{pastAttempts.length} / {activity.max_attempts || '∞'}</span>
+               <span className="font-bold text-foreground">
+                 {pastAttempts.length} {activity.max_attempts ? `/ ${activity.max_attempts}` : ''}
+               </span>
             </div>
           </div>
           );
@@ -146,7 +148,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           
           if (hasPassed) {
             return (
-              <div className="text-green-600 font-semibold bg-green-50 p-4 rounded-lg inline-block border border-green-200">
+              <div className="text-primary font-semibold bg-primary/10 p-4 rounded-lg inline-block border border-primary/20">
                 ¡Ya has aprobado este cuestionario!
               </div>
             );
@@ -154,7 +156,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           
           if (reachedMaxAttempts) {
             return (
-              <div className="text-red-600 font-semibold bg-red-50 p-4 rounded-lg inline-block border border-red-200">
+              <div className="text-destructive font-semibold bg-destructive/10 p-4 rounded-lg inline-block border border-destructive/20">
                 Has alcanzado el límite máximo de intentos permitidos.
               </div>
             );
@@ -174,11 +176,11 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
     <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-8 shadow-sm">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
-          <HelpCircle className="h-8 w-8 text-purple-600" />
+          <HelpCircle className="h-8 w-8 text-primary" />
           <div>
             <h2 className="text-foreground text-2xl font-bold">{activity.title}</h2>
             {activity.passing_score && (
-              <p className="text-sm text-muted-foreground">Nota para aprobar: {activity.passing_score}%</p>
+              <p className="text-sm text-muted-foreground">Nota mínima para aprobar: {(activity.passing_score / 20).toFixed(1)} de 5.0</p>
             )}
           </div>
         </div>
@@ -195,7 +197,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           const isCorrect = feedback?.isCorrect;
 
           return (
-            <div key={q.id} className={`space-y-4 p-6 rounded-xl border ${result ? (isCorrect ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'bg-card'}`}>
+            <div key={q.id} className={`space-y-4 p-6 rounded-xl border ${result ? (isCorrect ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5') : 'bg-card'}`}>
               <div className="flex gap-3">
                 <span className="text-muted-foreground font-bold">{idx + 1}.</span>
                 <div className="flex-1">
@@ -206,7 +208,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
                 </div>
                 {result && (
                   <div>
-                    {isCorrect ? <CheckCircle2 className="w-6 h-6 text-green-500" /> : <XCircle className="w-6 h-6 text-red-500" />}
+                    {isCorrect ? <CheckCircle2 className="w-6 h-6 text-primary" /> : <XCircle className="w-6 h-6 text-destructive" />}
                   </div>
                 )}
               </div>
@@ -298,7 +300,7 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
           </Button>
         ) : (
           <div className="w-full text-center">
-            <h3 className={`mb-2 text-2xl font-bold ${result.passed ? 'text-green-500' : 'text-red-500'}`}>
+            <h3 className={`mb-2 text-2xl font-bold ${result.passed ? 'text-primary' : 'text-destructive'}`}>
               Resultado: {result.score.toFixed(1)}%
             </h3>
             <p className="text-muted-foreground mb-6 text-lg">

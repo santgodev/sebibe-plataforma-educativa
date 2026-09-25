@@ -289,7 +289,7 @@ export function CourseBuilder({
           module_id: activeModule.id,
           title: newLessonTitle.trim(),
           order_index: activeModule.lessons?.length || 0,
-          is_published: false,
+          is_published: true,
         });
         if (lesson) {
           setModules(

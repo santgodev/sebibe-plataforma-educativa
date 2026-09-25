@@ -15,10 +15,10 @@ export default async function AdminUsersPage() {
   const client = getSupabaseServerClient();
   const adminClient = getSupabaseServerAdminClient();
 
-  // Fetch accounts and user_roles separately since they might not have a direct FK in PostgREST
-  const [{ data: accounts, error: accountsError }, { data: roles, error: rolesError }] = await Promise.all([
+  const [{ data: accounts, error: accountsError }, { data: roles, error: rolesError }, { data: courses, error: coursesError }] = await Promise.all([
     adminClient.from('accounts').select('id, name, email, created_at').order('created_at', { ascending: false }),
-    adminClient.from('user_roles').select('id, role')
+    adminClient.from('user_roles').select('id, role'),
+    client.from('courses').select('id, title').eq('status', 'published')
   ]);
 
   const error = accountsError || rolesError;
@@ -71,7 +71,7 @@ export default async function AdminUsersPage() {
               </pre>
             </div>
           ) : (
-            <UsersTable users={formattedUsers} />
+            <UsersTable users={formattedUsers} courses={courses || []} />
           )}
         </div>
       </PageBody>

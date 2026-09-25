@@ -17,7 +17,34 @@ import { Tables } from '~/lib/database.types';
 export function HomeSidebar(props: {
   account?: Tables<'accounts'>;
   user: JwtPayload;
+  role?: string;
 }) {
+  const isAdministrador = props.role === 'administrador';
+  const isProfesor = props.role === 'profesor';
+  const isStaff = isAdministrador || isProfesor;
+  
+  // Clonamos y filtramos la configuración basada en el rol
+  const filteredConfig = {
+    ...navigationConfig,
+    routes: navigationConfig.routes.map(group => ({
+      ...group,
+      children: group.children?.filter(child => {
+        if (!isStaff) {
+          // Ocultar rutas de admin si no es admin ni profesor
+          const adminPaths = ['/home/admin-cohorts', '/home/admin-courses', '/home/admin-users'];
+          if (child.path && adminPaths.includes(child.path)) {
+            return false;
+          }
+        } else if (isProfesor) {
+          if (child.path === '/home/admin-users') {
+            return false;
+          }
+        }
+        return true;
+      })
+    }))
+  };
+
   return (
     <Sidebar collapsible={'icon'}>
       <SidebarHeader className={'h-16 justify-center'}>
@@ -29,7 +56,7 @@ export function HomeSidebar(props: {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarNavigation config={navigationConfig} />
+        <SidebarNavigation config={filteredConfig} />
       </SidebarContent>
 
       <SidebarFooter>

@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
+import { MoreHorizontal, PlusCircle, UserCog, LineChart } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -8,7 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from '@kit/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@kit/ui/dropdown-menu';
+import { Button } from '@kit/ui/button';
 import { EditUserDialog } from './edit-user-dialog';
+import { EnrollStudentDialog } from './enroll-student-dialog';
 
 export type UserData = {
   id: string;
@@ -18,7 +29,10 @@ export type UserData = {
   created_at: string;
 };
 
-export function UsersTable({ users }: { users: UserData[] }) {
+export function UsersTable({ users, courses }: { users: UserData[], courses: { id: string; title: string }[] }) {
+  const [enrollDialogUserId, setEnrollDialogUserId] = useState<string | null>(null);
+
+  const closeEnrollDialog = () => setEnrollDialogUserId(null);
   if (users.length === 0) {
     return (
       <div className="text-muted-foreground p-8 text-center">
@@ -42,7 +56,11 @@ export function UsersTable({ users }: { users: UserData[] }) {
         <TableBody>
           {users.map((user) => (
             <TableRow key={user.id}>
-              <TableCell className="font-medium">{user.name}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/home/admin-users/${user.id}`} className="hover:text-primary hover:underline transition-colors">
+                  {user.name}
+                </Link>
+              </TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>
                 <span
@@ -66,12 +84,47 @@ export function UsersTable({ users }: { users: UserData[] }) {
                 })}
               </TableCell>
               <TableCell className="text-right">
-                <EditUserDialog user={user} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Abrir menú</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href={`/home/admin-users/${user.id}`} className="flex items-center">
+                        <LineChart className="mr-2 h-4 w-4" />
+                        <span>Ver Progreso</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setEnrollDialogUserId(user.id)}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      <span>Inscribir a Materia</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <div className="w-full" onClick={(e) => e.stopPropagation()}>
+                        {/* We use EditUserDialog as a trigger itself, so we don't want DropdownMenuItem to steal clicks inappropriately if it messes with the Dialog */}
+                        <EditUserDialog user={user} />
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {enrollDialogUserId && (
+        <EnrollStudentDialog
+          userId={enrollDialogUserId}
+          userName={users.find((u) => u.id === enrollDialogUserId)?.name || ''}
+          courses={courses}
+          isOpen={!!enrollDialogUserId}
+          onOpenChange={closeEnrollDialog}
+        />
+      )}
     </div>
   );
 }

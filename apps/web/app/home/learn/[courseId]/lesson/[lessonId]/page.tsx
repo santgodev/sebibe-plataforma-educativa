@@ -117,6 +117,57 @@ export default async function LessonPage({
   const userRoles = rolesData?.map((r) => r.role) || [];
   const canModerate = userRoles.includes('admin') || userRoles.includes('profesor') || userRoles.includes('instructor');
 
+  // Check if lesson requires passing a quiz (evaluating blocks)
+  const hasBlocks = blocks && blocks.length > 0;
+  let requiresQuiz = false;
+  let hasPassedQuiz = false;
+  let activityIds: string[] = [];
+
+  if (directActivity?.id) {
+    requiresQuiz = true;
+    activityIds.push(directActivity.id);
+  }
+
+  if (hasBlocks) {
+    blocks!.forEach((block) => {
+      const c = block.content as any;
+      if (block.type === 'activity' && c?.activity_id) {
+        requiresQuiz = true;
+        activityIds.push(c.activity_id);
+      }
+    });
+  }
+
+  if (requiresQuiz && activityIds.length > 0) {
+    // Fetch passing scores
+    const { data: activitiesData } = await client
+      .from('activities')
+      .select('id, passing_score')
+      .in('id', activityIds);
+      
+    // Fetch user attempts
+    const { data: attemptsData } = await client
+      .from('activity_attempts')
+      .select('activity_id, score')
+      .eq('student_id', user.id)
+      .in('activity_id', activityIds);
+
+    if (activitiesData && attemptsData) {
+      let allPassed = true;
+      for (const act of activitiesData) {
+        const passingScore = act.passing_score || 0;
+        const passed = attemptsData.some(a => a.activity_id === act.id && (a.score || 0) >= passingScore);
+        if (!passed) {
+          allPassed = false;
+          break;
+        }
+      }
+      hasPassedQuiz = allPassed;
+    }
+  }
+
+  const canMarkAsCompleted = !requiresQuiz || hasPassedQuiz;
+
   // Calculate next lesson
   const { data: courseModules } = await client
     .from('course_modules')
@@ -142,7 +193,6 @@ export default async function LessonPage({
   }
 
   const lessonAny = lesson as any;
-  const hasBlocks = blocks && blocks.length > 0;
 
   function renderContent() {
     if (hasBlocks) {
@@ -194,7 +244,7 @@ export default async function LessonPage({
             if (!c?.activity_id) return null;
             return (
               <div key={block.id} className="mt-8 bg-card rounded-xl border p-6 shadow-sm">
-                <div className="flex items-center gap-3 text-purple-600 mb-6">
+                <div className="flex items-center gap-3 text-primary mb-6">
                   <HelpCircle className="w-8 h-8" />
                   <h3 className="text-2xl font-bold">Actividad Evaluada</h3>
                 </div>
@@ -254,7 +304,7 @@ export default async function LessonPage({
     if (type === 'quiz' && directActivity?.id) {
       return (
         <div className="bg-card rounded-xl border p-8 shadow-sm mt-8">
-          <div className="mb-8 flex items-center gap-3 text-purple-600">
+          <div className="mb-8 flex items-center gap-3 text-primary">
             <HelpCircle className="h-8 w-8" />
             <h3 className="text-2xl font-semibold">Cuestionario</h3>
           </div>
@@ -280,7 +330,13 @@ export default async function LessonPage({
       <div className="mx-auto w-full max-w-5xl p-6 lg:p-10 border-b mb-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <h1 className="mb-2 text-2xl font-bold text-zinc-900 md:text-3xl">{lesson.title}</h1>
-          <CompleteLessonButton courseId={courseId} lessonId={lessonId} isAlreadyCompleted={isCompleted} />
+          <CompleteLessonButton 
+            courseId={courseId} 
+            lessonId={lessonId} 
+            isAlreadyCompleted={isCompleted} 
+            isDisabled={!canMarkAsCompleted}
+            disabledReason="Debes aprobar el cuestionario de esta lección para poder completarla."
+          />
         </div>
       </div>
 
@@ -295,6 +351,7 @@ export default async function LessonPage({
             lessonId={lessonId}
             nextLessonId={nextLessonId}
             isAlreadyCompleted={isCompleted}
+            isDisabled={!canMarkAsCompleted}
           />
         </div>
 

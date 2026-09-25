@@ -84,3 +84,29 @@ export async function updateStudentUser(userId: string, formData: FormData) {
   revalidatePath('/home/admin-users');
   return { success: true };
 }
+
+export async function enrollStudentAction(userId: string, courseId: string) {
+  await requireUserInServerComponent();
+  const adminClient = getSupabaseServerAdminClient();
+
+  if (!userId || !courseId) {
+    throw new Error('Faltan datos de inscripción');
+  }
+
+  // Insertar en course_enrollments
+  const { error } = await adminClient
+    .from('course_enrollments')
+    .insert({ student_id: userId, course_id: courseId });
+
+  if (error) {
+    // Si ya está inscrito, suele dar error de unicidad, lo manejamos amigablemente
+    if (error.code === '23505') {
+      throw new Error('El estudiante ya está inscrito en esta materia.');
+    }
+    throw new Error(`Error inscribiendo estudiante: ${error.message}`);
+  }
+
+  revalidatePath(`/home/admin-users`);
+  revalidatePath(`/home/admin-users/${userId}`);
+  return { success: true };
+}

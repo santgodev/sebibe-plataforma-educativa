@@ -57,7 +57,6 @@ export default async function CourseLandingPage({
     return notFound();
   }
 
-  // Sort modules and lessons
   const modules =
     course.course_modules?.sort((a, b) => a.order_index - b.order_index) || [];
   modules.forEach((m) => {
@@ -69,6 +68,25 @@ export default async function CourseLandingPage({
     0,
   );
   const firstLessonId = modules[0]?.lessons?.[0]?.id;
+
+  // Obtener progreso del estudiante
+  const { requireUserInServerComponent } = await import('~/lib/server/require-user-in-server-component');
+  const user = await requireUserInServerComponent();
+  
+  const { data: progressData } = await client
+    .from('course_progress')
+    .select('percentage_completed')
+    .eq('student_id', user.id)
+    .eq('course_id', course.id)
+    .maybeSingle();
+  const progressPercentage = progressData?.percentage_completed || 0;
+
+  const { data: completedLessonsData } = await client
+    .from('lesson_progress')
+    .select('lesson_id')
+    .eq('student_id', user.id)
+    .eq('is_completed', true);
+  const completedLessonIds = new Set((completedLessonsData || []).map(p => p.lesson_id));
 
   return (
     <div className="bg-background w-full pb-20">
@@ -185,12 +203,16 @@ export default async function CourseLandingPage({
                               className="hover:bg-muted/50 group flex items-start gap-4 rounded-lg p-3 transition-colors"
                             >
                               <div className="text-muted-foreground group-hover:text-primary mt-0.5 transition-colors">
-                                <Icon className="h-5 w-5" />
+                                {completedLessonIds.has(lesson.id) ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                ) : (
+                                  <Icon className="h-5 w-5" />
+                                )}
                               </div>
                               <div className="flex-1">
                                 <Link
                                   href={`/home/learn/${course.id}/lesson/${lesson.id}`}
-                                  className="text-slate-900 group-hover:text-primary block font-medium transition-colors"
+                                  className={`group-hover:text-primary block font-medium transition-colors ${completedLessonIds.has(lesson.id) ? 'text-muted-foreground line-through decoration-muted-foreground/30' : 'text-slate-900'}`}
                                 >
                                   {lesson.title}
                                 </Link>
@@ -223,15 +245,27 @@ export default async function CourseLandingPage({
                 <FileText className="text-primary h-5 w-5" />
                 <span>{totalLessons} recursos descargables</span>
               </li>
-
             </ul>
+
+            <div className="my-6 pt-6 border-t">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Tu Avance</span>
+                <span className="font-bold text-primary">{progressPercentage}%</span>
+              </div>
+              <div className="w-full bg-muted/50 rounded-full h-2.5 overflow-hidden border">
+                <div 
+                  className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out" 
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+            </div>
 
             {firstLessonId && (
               <Link
                 href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground block w-full rounded-lg px-4 py-3 text-center font-bold transition-all"
               >
-                Comenzar ahora
+                {progressPercentage > 0 ? 'Continuar materia' : 'Comenzar ahora'}
               </Link>
             )}
           </div>
