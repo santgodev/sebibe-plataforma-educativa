@@ -63,6 +63,11 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
     return true;
   });
 
+  // Calculate unique available semesters
+  const availableSemesters = Array.from(
+    new Set(users.map(u => u.semester).filter((s): s is number => s != null))
+  ).sort((a, b) => a - b);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Filters */}
@@ -85,16 +90,11 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los semestres</SelectItem>
-            <SelectItem value="1">Semestre 1</SelectItem>
-            <SelectItem value="2">Semestre 2</SelectItem>
-            <SelectItem value="3">Semestre 3</SelectItem>
-            <SelectItem value="4">Semestre 4</SelectItem>
-            <SelectItem value="5">Semestre 5</SelectItem>
-            <SelectItem value="6">Semestre 6</SelectItem>
-            <SelectItem value="7">Semestre 7</SelectItem>
-            <SelectItem value="8">Semestre 8</SelectItem>
-            <SelectItem value="9">Semestre 9</SelectItem>
-            <SelectItem value="10">Semestre 10</SelectItem>
+            {availableSemesters.map(sem => (
+              <SelectItem key={sem} value={sem.toString()}>
+                Semestre {sem}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

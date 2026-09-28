@@ -16,14 +16,30 @@ export default async function AdminUsersPage() {
   const client = getSupabaseServerClient();
   const adminClient = getSupabaseServerAdminClient();
 
-  const [{ data: accounts, error: accountsError }, { data: roles, error: rolesError }, { data: courses, error: coursesError }, { data: students }] = await Promise.all([
-    adminClient.from('accounts').select('id, name, email, created_at').order('created_at', { ascending: false }),
-    adminClient.from('user_roles').select('id, role'),
-    client.from('courses').select('id, title').eq('status', 'published'),
-    adminClient.from('students').select('user_id, entry_date, modality')
-  ]);
+  let accounts: any[] = [];
+  let roles: any[] = [];
+  let courses: any[] = [];
+  let students: any[] = [];
+  let pageError: any = null;
 
-  const error = accountsError || rolesError;
+  try {
+    const [accountsRes, rolesRes, coursesRes, studentsRes] = await Promise.all([
+      adminClient.from('accounts').select('id, name, email, created_at').order('created_at', { ascending: false }),
+      adminClient.from('user_roles').select('id, role'),
+      client.from('courses').select('id, title').eq('status', 'published'),
+      adminClient.from('students').select('user_id, entry_date, modality')
+    ]);
+
+    accounts = accountsRes.data || [];
+    roles = rolesRes.data || [];
+    courses = coursesRes.data || [];
+    students = studentsRes.data || [];
+
+    pageError = accountsRes.error || rolesRes.error || coursesRes.error || studentsRes.error;
+  } catch (err: any) {
+    pageError = err;
+    console.error('Fetch error in Admin Users:', err);
+  }
 
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
   
@@ -72,11 +88,11 @@ export default async function AdminUsersPage() {
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Listado de Usuarios</h2>
           </div>
-          {error ? (
+          {pageError ? (
             <div className="text-red-500">
-              <p>Error al cargar usuarios.</p>
+              <p>Error al cargar usuarios. Podría ser un problema de conexión (Timeout).</p>
               <pre className="text-xs mt-2 overflow-auto max-w-full p-2 bg-red-50 rounded">
-                {JSON.stringify(error, null, 2)}
+                {JSON.stringify(pageError, null, 2)}
               </pre>
             </div>
           ) : (
