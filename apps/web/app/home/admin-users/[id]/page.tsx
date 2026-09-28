@@ -32,7 +32,7 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
   }
 
   // 2. Get enrolled courses
-  const { data: enrollments } = await client
+  const { data: enrollments } = await adminClient
     .from('course_enrollments')
     .select('course_id')
     .eq('user_id', studentId);
@@ -42,7 +42,7 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
   // 3. Get courses data
   let coursesWithProgress: any[] = [];
   if (enrolledCourseIds.length > 0) {
-    const { data: courses } = await client
+    const { data: courses } = await adminClient
       .from('courses')
       .select(`
         id, title, thumbnail_url,

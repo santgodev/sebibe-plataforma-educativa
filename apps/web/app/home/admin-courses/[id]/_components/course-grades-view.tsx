@@ -1,5 +1,6 @@
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { FileText } from 'lucide-react';
+import { StudentAttemptDialog } from './student-attempt-dialog';
 
 interface CourseGradesViewProps {
   courseId: string;
@@ -16,9 +17,18 @@ export async function CourseGradesView({ courseId, students, enrolledIds }: Cour
   // Fetch activities for this course
   const { data: activities } = await adminClient
     .from('activities')
-    .select('id, title, type, max_attempts')
+    .select('id, title, type, max_attempts, lessons(title, course_modules(title)), activity_questions(id, question_text, type, order_index, activity_answers(id, answer_text))')
     .eq('course_id', courseId)
     .order('created_at', { ascending: true });
+
+  // Sort questions for each activity
+  if (activities) {
+    activities.forEach(a => {
+      if (a.activity_questions) {
+        a.activity_questions.sort((q1: any, q2: any) => (q1.order_index || 0) - (q2.order_index || 0));
+      }
+    });
+  }
 
   // Fetch attempts for these activities
   const activityIds = (activities || []).map(a => a.id);
@@ -28,25 +38,25 @@ export async function CourseGradesView({ courseId, students, enrolledIds }: Cour
   if (activityIds.length > 0) {
     const { data } = await adminClient
       .from('activity_attempts')
-      .select('id, activity_id, student_id, score, status, attempt_number')
+      .select('id, activity_id, student_id, score, status, attempt_number, answers_json')
       .in('activity_id', activityIds);
     attempts = data || [];
   }
 
-  // We want to show the max score for each student-activity pair
-  // Group by student_id -> activity_id -> max score
-  const studentScores = new Map<string, Map<string, number>>();
+  // We want to show the max score attempt for each student-activity pair
+  // Group by student_id -> activity_id -> best attempt
+  const studentBestAttempts = new Map<string, Map<string, any>>();
 
   if (attempts && attempts.length > 0) {
     attempts.forEach(attempt => {
       if (attempt.score !== null) {
-        if (!studentScores.has(attempt.student_id)) {
-          studentScores.set(attempt.student_id, new Map());
+        if (!studentBestAttempts.has(attempt.student_id)) {
+          studentBestAttempts.set(attempt.student_id, new Map());
         }
-        const studentMap = studentScores.get(attempt.student_id)!;
-        const currentScore = studentMap.get(attempt.activity_id) || 0;
-        if (attempt.score > currentScore) {
-          studentMap.set(attempt.activity_id, attempt.score);
+        const studentMap = studentBestAttempts.get(attempt.student_id)!;
+        const currentBest = studentMap.get(attempt.activity_id);
+        if (!currentBest || attempt.score > currentBest.score) {
+          studentMap.set(attempt.activity_id, attempt);
         }
       }
     });
@@ -61,43 +71,58 @@ export async function CourseGradesView({ courseId, students, enrolledIds }: Cour
       </div>
 
       {activities && activities.length > 0 ? (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground">
+            <thead className="bg-muted/30 text-muted-foreground border-b">
               <tr>
-                <th className="px-4 py-3 font-semibold border-b">Estudiante</th>
-                {activities.map(activity => (
-                  <th key={activity.id} className="px-4 py-3 font-semibold text-center border-b border-l">
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="truncate max-w-[120px] sm:max-w-[150px]" title={activity.title}>
+                <th className="px-6 py-4 font-medium text-xs uppercase tracking-wider min-w-[200px]">Estudiante</th>
+                {activities.map(activity => {
+                  const lessonData = activity.lessons as any;
+                  const lessonTitle = lessonData?.title;
+                  const moduleTitle = lessonData?.course_modules?.title;
+
+                  return (
+                  <th key={activity.id} className="px-4 py-4 font-medium text-center border-l min-w-[140px]">
+                    <div className="flex flex-col items-center">
+                      <span className="truncate max-w-[160px] text-foreground font-semibold" title={activity.title}>
                         {activity.title}
                       </span>
-                      <span className="text-[10px] uppercase bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                      {lessonTitle && (
+                        <span className="mt-0.5 truncate max-w-[140px] text-[10px] text-muted-foreground" title={lessonTitle}>
+                          {lessonTitle}
+                        </span>
+                      )}
+                      <span className="mt-1 text-[9px] tracking-widest uppercase font-bold text-muted-foreground/50">
                         {activity.type === 'final_eval' ? 'Examen' : 'Quiz'}
                       </span>
                     </div>
                   </th>
-                ))}
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y">
               {enrolledStudents.length > 0 ? (
                 enrolledStudents.map(student => (
-                  <tr key={student.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
+                  <tr key={student.id} className="hover:bg-muted/40 transition-colors">
+                    <td className="px-6 py-4">
                       <div className="font-semibold text-foreground">{student.name || 'Sin nombre'}</div>
-                      <div className="text-muted-foreground text-xs">{student.email}</div>
+                      <div className="text-muted-foreground text-xs mt-0.5">{student.email}</div>
                     </td>
                     {activities.map(activity => {
-                      const score = studentScores.get(student.id)?.get(activity.id);
+                      const attempt = studentBestAttempts.get(student.id)?.get(activity.id);
                       return (
-                        <td key={activity.id} className="px-4 py-3 text-center border-l">
-                          {score !== undefined ? (
-                            <span className={`font-bold ${score >= 3.0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {score.toFixed(1)}
-                            </span>
+                        <td key={activity.id} className="px-4 py-4 text-center border-l">
+                          {attempt ? (
+                            <div className="flex justify-center">
+                              <StudentAttemptDialog 
+                                activity={activity} 
+                                attempt={attempt} 
+                                studentName={student.name || 'Sin nombre'} 
+                              />
+                            </div>
                           ) : (
-                            <span className="text-muted-foreground/50">-</span>
+                            <span className="text-muted-foreground/30 font-medium">-</span>
                           )}
                         </td>
                       );

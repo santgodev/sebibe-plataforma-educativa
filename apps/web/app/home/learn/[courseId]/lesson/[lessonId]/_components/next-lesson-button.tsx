@@ -41,7 +41,7 @@ export function NextLessonButton({
         router.push(`/home/learn/${courseId}/lesson/${nextLessonId}`);
       } else {
         toast.success('🎉 ¡Has terminado todas las lecciones!', { duration: 5000 });
-        router.push(`/home/courses/${courseId}`);
+        router.push(`/home/courses`);
       }
     } catch {
       toast.error('Error al avanzar');

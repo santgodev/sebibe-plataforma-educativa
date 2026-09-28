@@ -139,10 +139,10 @@ export default async function LessonPage({
   }
 
   if (requiresQuiz && activityIds.length > 0) {
-    // Fetch passing scores
+    // Fetch passing scores and check if they have questions
     const { data: activitiesData } = await client
       .from('activities')
-      .select('id, passing_score')
+      .select('id, passing_score, type, activity_questions(id)')
       .in('id', activityIds);
       
     // Fetch user attempts
@@ -154,15 +154,30 @@ export default async function LessonPage({
 
     if (activitiesData && attemptsData) {
       let allPassed = true;
+      let hasBlockingActivities = false;
+
       for (const act of activitiesData) {
+        // If an activity has no questions, the student cannot submit it, so it shouldn't block
+        const hasQuestions = act.activity_questions && act.activity_questions.length > 0;
+        if (!hasQuestions) {
+          continue; // skip blocking for this activity
+        }
+
+        hasBlockingActivities = true;
         const passingScore = act.passing_score || 0;
         const passed = attemptsData.some(a => a.activity_id === act.id && (a.score || 0) >= passingScore);
+        
         if (!passed) {
           allPassed = false;
           break;
         }
       }
-      hasPassedQuiz = allPassed;
+      
+      // If there were blocking activities, we require allPassed. If none were blocking, it's considered passed.
+      hasPassedQuiz = hasBlockingActivities ? allPassed : true;
+    } else {
+      // If we couldn't fetch data, fallback to false if there were activityIds
+      hasPassedQuiz = activityIds.length === 0;
     }
   }
 
