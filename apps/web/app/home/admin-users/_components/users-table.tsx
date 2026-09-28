@@ -20,6 +20,14 @@ import {
 import { Button } from '@kit/ui/button';
 import { EditUserDialog } from './edit-user-dialog';
 import { EnrollStudentDialog } from './enroll-student-dialog';
+import { DeleteUserDialog } from './delete-user-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@kit/ui/select';
 
 export type UserData = {
   id: string;
@@ -27,10 +35,17 @@ export type UserData = {
   email: string;
   role: string | null;
   created_at: string;
+  semester?: number | null;
+  modality?: string | null;
 };
 
 export function UsersTable({ users, courses }: { users: UserData[], courses: { id: string; title: string }[] }) {
   const [enrollDialogUserId, setEnrollDialogUserId] = useState<string | null>(null);
+  
+  // Filters state
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [semesterFilter, setSemesterFilter] = useState<string>('all');
+  const [modalityFilter, setModalityFilter] = useState<string>('all');
 
   const closeEnrollDialog = () => setEnrollDialogUserId(null);
   if (users.length === 0) {
@@ -41,20 +56,82 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
     );
   }
 
+  const filteredUsers = users.filter((u) => {
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+    if (semesterFilter !== 'all' && u.semester?.toString() !== semesterFilter) return false;
+    if (modalityFilter !== 'all' && u.modality !== modalityFilter) return false;
+    return true;
+  });
+
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="flex flex-col gap-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4">
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Rol" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los roles</SelectItem>
+            <SelectItem value="alumno">Alumno</SelectItem>
+            <SelectItem value="profesor">Profesor</SelectItem>
+            <SelectItem value="administrador">Administrador</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={semesterFilter} onValueChange={setSemesterFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Semestre" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los semestres</SelectItem>
+            <SelectItem value="1">Semestre 1</SelectItem>
+            <SelectItem value="2">Semestre 2</SelectItem>
+            <SelectItem value="3">Semestre 3</SelectItem>
+            <SelectItem value="4">Semestre 4</SelectItem>
+            <SelectItem value="5">Semestre 5</SelectItem>
+            <SelectItem value="6">Semestre 6</SelectItem>
+            <SelectItem value="7">Semestre 7</SelectItem>
+            <SelectItem value="8">Semestre 8</SelectItem>
+            <SelectItem value="9">Semestre 9</SelectItem>
+            <SelectItem value="10">Semestre 10</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={modalityFilter} onValueChange={setModalityFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Modalidad" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las modalidades</SelectItem>
+            <SelectItem value="presencial">Presencial</SelectItem>
+            <SelectItem value="virtual">Virtual</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-md border">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Correo Electrónico</TableHead>
             <TableHead>Rol</TableHead>
+            <TableHead>Semestre</TableHead>
+            <TableHead>Modalidad</TableHead>
             <TableHead>Fecha de Registro</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((user) => (
+          {filteredUsers.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                No se encontraron usuarios con estos filtros.
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredUsers.map((user) => (
             <TableRow key={user.id}>
               <TableCell className="font-medium">
                 <Link href={`/home/admin-users/${user.id}`} className="hover:text-primary hover:underline transition-colors">
@@ -75,6 +152,12 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
                 >
                   {user.role || 'Sin rol'}
                 </span>
+              </TableCell>
+              <TableCell>
+                {user.semester ? `Sem. ${user.semester}` : '-'}
+              </TableCell>
+              <TableCell className="capitalize">
+                {user.modality || '-'}
               </TableCell>
               <TableCell>
                 {new Date(user.created_at).toLocaleDateString('es-ES', {
@@ -102,19 +185,23 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
                       <PlusCircle className="mr-2 h-4 w-4" />
                       <span>Inscribir a Materia</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <div className="w-full" onClick={(e) => e.stopPropagation()}>
-                        {/* We use EditUserDialog as a trigger itself, so we don't want DropdownMenuItem to steal clicks inappropriately if it messes with the Dialog */}
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <div className="w-full">
                         <EditUserDialog user={user} />
                       </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="p-0">
+                      <DeleteUserDialog user={user} />
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
             </TableRow>
-          ))}
+            ))
+          )}
         </TableBody>
       </Table>
+      </div>
 
       {enrollDialogUserId && (
         <EnrollStudentDialog

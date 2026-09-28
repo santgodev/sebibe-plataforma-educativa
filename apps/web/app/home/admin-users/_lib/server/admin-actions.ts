@@ -122,3 +122,34 @@ export async function enrollStudentAction(userId: string, courseId: string) {
   revalidatePath(`/home/admin-users/${userId}`);
   return { success: true };
 }
+
+export async function deleteStudentUser(userId: string) {
+  await requireUserInServerComponent();
+  const adminClient = getSupabaseServerAdminClient();
+
+  if (!userId) {
+    throw new Error('Falta el ID del usuario a eliminar');
+  }
+
+  // Eliminamos en orden inverso de dependencias. 
+  // 1. Opcional: Eliminar enrollments si los hay (Supabase por defecto tiene cascade si se configuró así, pero por si acaso)
+  await adminClient.from('course_enrollments').delete().eq('student_id', userId);
+  await adminClient.from('course_progress').delete().eq('student_id', userId);
+  await adminClient.from('lesson_progress').delete().eq('student_id', userId);
+  await adminClient.from('activity_attempts').delete().eq('student_id', userId);
+  
+  // 2. Tablas principales de usuario
+  await adminClient.from('students').delete().eq('user_id', userId);
+  await adminClient.from('user_roles').delete().eq('id', userId);
+  await adminClient.from('accounts').delete().eq('id', userId);
+
+  // 3. Auth
+  const { error } = await adminClient.auth.admin.deleteUser(userId);
+
+  if (error) {
+    throw new Error(`Error eliminando el usuario de Auth: ${error.message}`);
+  }
+
+  revalidatePath('/home/admin-users');
+  return { success: true };
+}

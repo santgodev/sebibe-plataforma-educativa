@@ -7,7 +7,7 @@ import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@kit/ui/select';
 
-export function CreateUserForm() {
+export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -20,6 +20,7 @@ export function CreateUserForm() {
       await createStudentUser(formData);
       setSuccess(true);
       (document.getElementById('create-user-form') as HTMLFormElement).reset();
+      if (onSuccess) onSuccess();
     } catch (e: any) {
       setError(e.message || 'Error al crear usuario');
     } finally {

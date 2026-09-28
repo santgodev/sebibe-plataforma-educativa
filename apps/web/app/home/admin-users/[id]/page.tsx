@@ -8,6 +8,7 @@ import { PageBody, PageHeader } from '@kit/ui/page';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 import { Button } from '@kit/ui/button';
 import { ViewSubmissionDialog } from './_components/view-submission-dialog';
+import { calculateSemester } from '../_lib/student-utils';
 
 export const metadata = {
   title: 'Progreso del Estudiante',
@@ -30,6 +31,13 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
   if (accountError || !account) {
     return notFound();
   }
+
+  // 1.5 Get student details if any
+  const { data: studentProfile } = await adminClient
+    .from('students')
+    .select('*')
+    .eq('user_id', studentId)
+    .maybeSingle();
 
   // 2. Get enrolled courses
   const { data: enrollments } = await adminClient
@@ -114,8 +122,50 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
 
       <PageBody>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna Izquierda: Cursos */}
+          {/* Columna Izquierda: Perfil y Cursos */}
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* Tarjeta de Perfil del Estudiante */}
+            {studentProfile && (
+              <div className="bg-background rounded-xl border p-6">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  <span translate="no">Información del Estudiante</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Cédula / Documento</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">{studentProfile.document_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Correo Institucional</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">{studentProfile.institutional_email}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Teléfono</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">{studentProfile.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Fecha de Nacimiento</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">{studentProfile.birth_date}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Iglesia</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">{studentProfile.church}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Semestre Actual</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">
+                      Semestre {studentProfile.entry_date ? calculateSemester(studentProfile.entry_date) : 1}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground font-semibold" translate="no">Modalidad</p>
+                    <p className="text-slate-900 dark:text-slate-100 font-medium capitalize" translate="no">{studentProfile.modality || 'Presencial'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-background rounded-xl border p-6">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-slate-100">
                 <BookOpen className="h-5 w-5 text-primary" />

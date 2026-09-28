@@ -3,6 +3,7 @@ import { requireUserInServerComponent } from '~/lib/server/require-user-in-serve
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { UsersTable } from './_components/users-table';
 import { CreateUserDialog } from './_components/create-user-dialog';
+import { calculateSemester } from './_lib/student-utils';
 
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
@@ -15,24 +16,32 @@ export default async function AdminUsersPage() {
   const client = getSupabaseServerClient();
   const adminClient = getSupabaseServerAdminClient();
 
-  const [{ data: accounts, error: accountsError }, { data: roles, error: rolesError }, { data: courses, error: coursesError }] = await Promise.all([
+  const [{ data: accounts, error: accountsError }, { data: roles, error: rolesError }, { data: courses, error: coursesError }, { data: students }] = await Promise.all([
     adminClient.from('accounts').select('id, name, email, created_at').order('created_at', { ascending: false }),
     adminClient.from('user_roles').select('id, role'),
-    client.from('courses').select('id, title').eq('status', 'published')
+    client.from('courses').select('id, title').eq('status', 'published'),
+    adminClient.from('students').select('user_id, entry_date, modality')
   ]);
 
   const error = accountsError || rolesError;
 
-  // Create a map for quick role lookup
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
+  
+  // Create a map for quick student data lookup
+  const studentMap = new Map((students || []).map(s => [s.user_id, { entry_date: s.entry_date, modality: s.modality }]));
 
-  const formattedUsers = (accounts || []).map((account: any) => ({
-    id: account.id,
-    name: account.name || 'Sin Nombre',
-    email: account.email || 'Sin correo',
-    role: roleMap.get(account.id) || 'alumno',
-    created_at: account.created_at || new Date().toISOString(),
-  }));
+  const formattedUsers = (accounts || []).map((account: any) => {
+    const studentData = studentMap.get(account.id);
+    return {
+      id: account.id,
+      name: account.name || 'Sin Nombre',
+      email: account.email || 'Sin correo',
+      role: roleMap.get(account.id) || 'alumno',
+      created_at: account.created_at || new Date().toISOString(),
+      semester: studentData?.entry_date ? calculateSemester(studentData.entry_date) : null,
+      modality: studentData?.modality || null,
+    };
+  });
 
   return (
     <>
