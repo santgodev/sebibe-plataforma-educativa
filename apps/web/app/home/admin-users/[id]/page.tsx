@@ -105,9 +105,9 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
         description={`Panel de seguimiento para ${account.email}`}
       >
         <Link href="/home/admin-users">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 text-slate-900 dark:text-slate-100">
             <ArrowLeft className="h-4 w-4" />
-            Volver a Usuarios
+            <span translate="no">Volver a Usuarios</span>
           </Button>
         </Link>
       </PageHeader>
@@ -117,9 +117,9 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
           {/* Columna Izquierda: Cursos */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-background rounded-xl border p-6">
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-slate-100">
                 <BookOpen className="h-5 w-5 text-primary" />
-                Materias Inscritas
+                <span translate="no">Materias Inscritas</span>
               </h2>
 
               {coursesWithProgress.length === 0 ? (
@@ -165,9 +165,9 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
           {/* Columna Derecha: Evaluaciones */}
           <div className="space-y-6">
             <div className="bg-background rounded-xl border p-6">
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-slate-100">
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                Últimas Evaluaciones
+                <span translate="no">Últimas Evaluaciones</span>
               </h2>
 
               {!attempts || attempts.length === 0 ? (
