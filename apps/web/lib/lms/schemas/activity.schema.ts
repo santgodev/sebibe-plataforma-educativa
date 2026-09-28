@@ -4,6 +4,7 @@ export const QuestionTypeSchema = z.enum([
   'single_choice',
   'multiple_choice',
   'true_false',
+  'open_text',
   'matching',
   'fill_blank',
   'order_steps',
@@ -23,7 +24,7 @@ export const ActivityQuestionSchema = z.object({
   points: z.number().int().min(1).default(1),
   order_index: z.number().int().nullable().optional(),
   feedback_text: z.string().nullable().optional(),
-  answers: z.array(ActivityAnswerSchema).min(1),
+  answers: z.array(ActivityAnswerSchema),
 });
 
 const BaseActivitySchema = z.object({

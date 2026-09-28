@@ -128,6 +128,9 @@ export class ActivityService {
           const correctBlanks = question.activity_answers.filter((a: any) => a.is_correct).map((a: any) => a.answer_text.toLowerCase());
           isCorrect = correctBlanks.includes(String(studentAnswer).toLowerCase());
           break;
+        case 'open_text':
+          isCorrect = String(studentAnswer).trim().length > 0;
+          break;
         case 'order_steps':
           const correctOrder = question.activity_answers.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)).map((a: any) => a.id);
           isCorrect = JSON.stringify(correctOrder) === JSON.stringify(studentAnswer);

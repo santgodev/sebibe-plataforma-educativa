@@ -8,6 +8,7 @@ import { CourseBuilder } from './_components/course-builder';
 import { CoursePublishToggle } from './_components/course-publish-toggle';
 import { CourseSettingsForm } from './_components/course-settings-form';
 import { CourseEnrollmentsForm } from './_components/course-enrollments-form';
+import { CourseGradesView } from './_components/course-grades-view';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 export const metadata = {
@@ -91,6 +92,7 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
               <TabsTrigger value="curriculum">Temario</TabsTrigger>
               <TabsTrigger value="settings">Configuración General</TabsTrigger>
               <TabsTrigger value="enrollments">Alumnos Inscritos</TabsTrigger>
+              <TabsTrigger value="grades">Notas y Evaluaciones</TabsTrigger>
             </TabsList>
 
             <TabsContent value="curriculum" className="mt-0">
@@ -131,6 +133,19 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
                   courseId={course.id} 
                   students={students} 
                   initialEnrolledIds={initialEnrolledIds} 
+                />
+              </section>
+            </TabsContent>
+
+            <TabsContent value="grades" className="mt-0">
+              <section className="bg-background text-foreground rounded-lg border p-6">
+                <h2 className="mb-6 text-xl font-bold">
+                  Notas y Evaluaciones
+                </h2>
+                <CourseGradesView 
+                  courseId={course.id} 
+                  students={students} 
+                  enrolledIds={initialEnrolledIds} 
                 />
               </section>
             </TabsContent>

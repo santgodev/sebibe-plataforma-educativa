@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
   FileText,
@@ -72,6 +73,7 @@ export function CourseBuilder({
 }) {
   const [modules, setModules] = useState<Module[]>(initialModules);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Modals state
   const [isCreateModuleOpen, setIsCreateModuleOpen] = useState(false);
@@ -302,6 +304,7 @@ export function CourseBuilder({
           toast.success('Lección creada');
           setNewLessonTitle('');
           setIsCreateLessonOpen(false);
+          router.push(`/home/admin-courses/${courseId}/lesson/${lesson.id}`);
         }
       } catch (error: any) {
         toast.error(error.message || 'Error al crear la lección');

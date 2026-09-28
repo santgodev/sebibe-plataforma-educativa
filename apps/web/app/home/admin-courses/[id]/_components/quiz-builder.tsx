@@ -134,6 +134,8 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
           { id: crypto.randomUUID(), answer_text: '', is_correct: true, order_index: 0 },
           { id: crypto.randomUUID(), answer_text: '', is_correct: true, order_index: 1 }
         ];
+      } else if (value === 'open_text') {
+        newQs[qIndex].answers = [];
       }
     }
     
@@ -210,6 +212,7 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                       <SelectItem value="single_choice">Selección Única</SelectItem>
                       <SelectItem value="multiple_choice">Selección Múltiple</SelectItem>
                       <SelectItem value="true_false">Verdadero / Falso</SelectItem>
+                      <SelectItem value="open_text">Pregunta Abierta</SelectItem>
                       <SelectItem value="matching">Emparejar</SelectItem>
                       <SelectItem value="fill_blank">Completar Espacios</SelectItem>
                       <SelectItem value="order_steps">Ordenar Pasos</SelectItem>
@@ -218,63 +221,69 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                 </div>
               </div>
 
-              <div className="bg-muted/30 rounded p-4 mb-4">
-                <Label className="mb-2 block text-sm font-semibold">Opciones / Respuestas</Label>
-                
-                {q.type === 'fill_blank' && (
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Añade las palabras exactas que el estudiante debe escribir.
-                  </p>
-                )}
-                {q.type === 'matching' && (
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Usa el formato "Concepto | Definición". Ejemplo: "Manzana | Fruta roja"
-                  </p>
-                )}
-                {q.type === 'order_steps' && (
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Añade los pasos en el orden correcto. El sistema los mezclará automáticamente.
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  {q.answers.map((a: any, aIndex: number) => (
-                    <div key={a.id} className="flex items-center gap-2">
-                      {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
-                        <button
-                          onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !a.is_correct)}
-                          type="button"
-                          className="flex-shrink-0"
-                        >
-                          {a.is_correct ? <CheckCircle2 className="text-green-500 w-5 h-5"/> : <Circle className="text-muted-foreground w-5 h-5"/>}
-                        </button>
-                      )}
-                      
-                      {q.type === 'order_steps' && (
-                        <span className="font-mono text-sm w-6">{aIndex + 1}.</span>
-                      )}
-
-                      <Input 
-                        value={a.answer_text} 
-                        onChange={e => updateAnswer(qIndex, aIndex, 'answer_text', e.target.value)}
-                        className={a.is_correct && (q.type === 'single_choice' || q.type === 'multiple_choice') ? 'border-green-500/50' : ''}
-                      />
-                      
-                      {q.type !== 'true_false' && (
-                        <Button variant="ghost" size="icon" className="text-destructive flex-shrink-0" onClick={() => removeAnswer(qIndex, aIndex)}>
-                          <Trash2 className="w-4 h-4"/>
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+              {q.type === 'open_text' ? (
+                <div className="bg-muted/30 rounded p-4 mb-4 text-center">
+                  <p className="text-sm text-muted-foreground">Esta pregunta requerirá que el estudiante escriba su respuesta de forma libre. (Por ahora, cualquier respuesta ingresada sumará puntos automáticamente).</p>
                 </div>
-                
-                {q.type !== 'true_false' && (
-                  <Button variant="outline" size="sm" onClick={() => addAnswer(qIndex)} className="mt-3 text-xs text-slate-900">
-                    <PlusCircle className="w-3 h-3 mr-1"/> Añadir Opción
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <div className="bg-muted/30 rounded p-4 mb-4">
+                  <Label className="mb-2 block text-sm font-semibold">Opciones / Respuestas</Label>
+                  
+                  {q.type === 'fill_blank' && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Añade las palabras exactas que el estudiante debe escribir.
+                    </p>
+                  )}
+                  {q.type === 'matching' && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Usa el formato "Concepto | Definición". Ejemplo: "Manzana | Fruta roja"
+                    </p>
+                  )}
+                  {q.type === 'order_steps' && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Añade los pasos en el orden correcto. El sistema los mezclará automáticamente.
+                    </p>
+                  )}
+
+                  <div className="space-y-2">
+                    {q.answers.map((a: any, aIndex: number) => (
+                      <div key={a.id} className="flex items-center gap-2">
+                        {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
+                          <button
+                            onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !a.is_correct)}
+                            type="button"
+                            className="flex-shrink-0"
+                          >
+                            {a.is_correct ? <CheckCircle2 className="text-green-500 w-5 h-5"/> : <Circle className="text-muted-foreground w-5 h-5"/>}
+                          </button>
+                        )}
+                        
+                        {q.type === 'order_steps' && (
+                          <span className="font-mono text-sm w-6">{aIndex + 1}.</span>
+                        )}
+
+                        <Input 
+                          value={a.answer_text} 
+                          onChange={e => updateAnswer(qIndex, aIndex, 'answer_text', e.target.value)}
+                          className={a.is_correct && (q.type === 'single_choice' || q.type === 'multiple_choice') ? 'border-green-500/50' : ''}
+                        />
+                        
+                        {q.type !== 'true_false' && (
+                          <Button variant="ghost" size="icon" className="text-destructive flex-shrink-0" onClick={() => removeAnswer(qIndex, aIndex)}>
+                            <Trash2 className="w-4 h-4"/>
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {q.type !== 'true_false' && (
+                    <Button variant="outline" size="sm" onClick={() => addAnswer(qIndex)} className="mt-3 text-xs text-slate-900">
+                      <PlusCircle className="w-3 h-3 mr-1"/> Añadir Opción
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {autoFeedback && (
                 <div>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@kit/ui/button';
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
+import { Textarea } from '@kit/ui/textarea';
 
 import { getFullActivityAction, submitActivityAttemptAction, getActivityAttemptsAction } from '~/lib/lms/server/actions/activity.actions';
 
@@ -265,6 +266,18 @@ export function QuizViewer({ activityId, courseId }: { activityId: string, cours
                       onChange={e => handleSelect(q.id, e.target.value)}
                       disabled={!!result}
                       className="max-w-md"
+                    />
+                  </div>
+                )}
+
+                {q.type === 'open_text' && (
+                  <div className="mt-2">
+                    <Textarea 
+                      placeholder="Escribe tu respuesta aquí..." 
+                      value={answers[q.id] || ''} 
+                      onChange={e => handleSelect(q.id, e.target.value)}
+                      disabled={!!result}
+                      className="min-h-[120px] w-full max-w-2xl text-sm bg-background border-input"
                     />
                   </div>
                 )}
