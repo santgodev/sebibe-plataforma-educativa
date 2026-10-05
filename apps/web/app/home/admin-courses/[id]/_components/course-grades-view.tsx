@@ -49,13 +49,18 @@ export async function CourseGradesView({ courseId, students, enrolledIds }: Cour
 
   if (attempts && attempts.length > 0) {
     attempts.forEach(attempt => {
-      if (attempt.score !== null) {
+      if (attempt.score !== null || attempt.status === 'needs_grading') {
         if (!studentBestAttempts.has(attempt.student_id)) {
           studentBestAttempts.set(attempt.student_id, new Map());
         }
         const studentMap = studentBestAttempts.get(attempt.student_id)!;
-        const currentBest = studentMap.get(attempt.activity_id);
-        if (!currentBest || attempt.score > currentBest.score) {
+        const current = studentMap.get(attempt.activity_id);
+
+        if (!current) {
+          studentMap.set(attempt.activity_id, attempt);
+        } else if (attempt.status === 'needs_grading') {
+          studentMap.set(attempt.activity_id, attempt);
+        } else if (current.status !== 'needs_grading' && (attempt.score || 0) > (current.score || 0)) {
           studentMap.set(attempt.activity_id, attempt);
         }
       }
@@ -79,7 +84,6 @@ export async function CourseGradesView({ courseId, students, enrolledIds }: Cour
                 {activities.map(activity => {
                   const lessonData = activity.lessons as any;
                   const lessonTitle = lessonData?.title;
-                  const moduleTitle = lessonData?.course_modules?.title;
 
                   return (
                   <th key={activity.id} className="px-4 py-4 font-medium text-center border-l min-w-[140px]">

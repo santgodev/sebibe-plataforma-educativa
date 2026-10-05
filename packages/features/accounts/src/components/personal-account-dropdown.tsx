@@ -68,6 +68,8 @@ export function PersonalAccountDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        id={'account-dropdown-trigger'}
+        suppressHydrationWarning
         aria-label="Open your profile menu"
         data-test={'account-dropdown-trigger'}
         className={cn(

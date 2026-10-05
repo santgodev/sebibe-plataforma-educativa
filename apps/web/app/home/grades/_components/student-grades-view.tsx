@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Award } from 'lucide-react';
+import { CheckCircle2, XCircle, Award, Clock } from 'lucide-react';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 
 export async function StudentGradesView({ userId }: { userId: string }) {
@@ -10,6 +10,7 @@ export async function StudentGradesView({ userId }: { userId: string }) {
     .select(`
       id,
       score,
+      status,
       completed_at,
       activities (
         id,
@@ -96,6 +97,8 @@ export async function StudentGradesView({ userId }: { userId: string }) {
                         const passingGrade5 = passingScore / 20;
                         const passed = grade5 >= passingGrade5;
 
+                        const isNeedsGrading = attempt.status === 'needs_grading';
+
                         return (
                           <tr key={attempt.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-6 py-4 font-medium text-foreground">
@@ -109,13 +112,23 @@ export async function StudentGradesView({ userId }: { userId: string }) {
                               }) : 'En progreso'}
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className={`inline-flex items-center justify-center font-black text-lg ${passed ? 'text-green-600' : 'text-red-500'}`}>
-                                {grade5.toFixed(1)}
-                              </span>
+                              {isNeedsGrading ? (
+                                <span className="inline-flex items-center justify-center font-bold text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40 px-2.5 py-1 rounded-full">
+                                  Pendiente
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center justify-center font-black text-lg ${passed ? 'text-green-600' : 'text-red-500'}`}>
+                                  {grade5.toFixed(1)}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex justify-center">
-                                {passed ? (
+                                {isNeedsGrading ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                    <Clock className="h-3.5 w-3.5 animate-pulse" /> En revisión
+                                  </span>
+                                ) : passed ? (
                                   <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
                                     <CheckCircle2 className="h-3.5 w-3.5" /> Aprobado
                                   </span>

@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -90,20 +88,6 @@ export function PasswordSignInForm({
               </FormControl>
 
               <FormMessage />
-
-              <div>
-                <Button
-                  asChild
-                  type={'button'}
-                  size={'sm'}
-                  variant={'link'}
-                  className={'text-xs'}
-                >
-                  <Link href={'/auth/password-reset'}>
-                    <Trans i18nKey={'auth:passwordForgottenQuestion'} />
-                  </Link>
-                </Button>
-              </div>
             </FormItem>
           )}
         />

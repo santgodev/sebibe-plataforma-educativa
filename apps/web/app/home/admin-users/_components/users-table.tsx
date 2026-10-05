@@ -29,6 +29,24 @@ import {
   SelectValue,
 } from '@kit/ui/select';
 
+export type StudentProfile = {
+  id?: string;
+  user_id?: string;
+  document_id?: string;
+  first_name?: string;
+  last_name?: string;
+  birth_date?: string;
+  phone?: string;
+  church?: string;
+  city?: string;
+  institutional_email?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+  entry_date?: string;
+  modality?: string;
+};
+
 export type UserData = {
   id: string;
   name: string;
@@ -37,6 +55,7 @@ export type UserData = {
   created_at: string;
   semester?: number | null;
   modality?: string | null;
+  studentProfile?: StudentProfile | null;
 };
 
 export function UsersTable({ users, courses }: { users: UserData[], courses: { id: string; title: string }[] }) {

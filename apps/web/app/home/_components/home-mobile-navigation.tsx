@@ -71,8 +71,10 @@ export function HomeMobileNavigation({ role }: { role?: string }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild id={'home-mobile-menu-trigger'}>
         <Button
+          id={'home-mobile-menu-trigger'}
+          suppressHydrationWarning
           variant="ghost"
           className="text-primary flex items-center gap-2"
           aria-label="Open menu"

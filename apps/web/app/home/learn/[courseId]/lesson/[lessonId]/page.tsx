@@ -83,15 +83,29 @@ export default async function LessonPage({
   let comments: any[] = [];
   if (commentsData && commentsData.length > 0) {
     const userIds = commentsData.map(c => c.user_id);
-    // Fetch accounts separately with admin client to bypass RLS since users can't read other users' profiles
-    const adminClient = getSupabaseServerAdminClient();
-    const { data: accountsData, error: accountsError } = await adminClient
-      .from('accounts')
-      .select('id, name, picture_url')
-      .in('id', userIds);
-      
-    if (accountsError) {
-      console.error('Error fetching accounts for comments (check SUPABASE_SERVICE_ROLE_KEY):', accountsError);
+    // Fetch accounts with admin client to bypass RLS, falling back to standard client if service key is missing/invalid
+    let accountsData: any[] | null = null;
+    try {
+      const adminClient = getSupabaseServerAdminClient();
+      const res = await adminClient
+        .from('accounts')
+        .select('id, name, picture_url')
+        .in('id', userIds);
+      if (!res.error) {
+        accountsData = res.data;
+      } else {
+        const fallback = await client
+          .from('accounts')
+          .select('id, name, picture_url')
+          .in('id', userIds);
+        accountsData = fallback.data;
+      }
+    } catch {
+      const fallback = await client
+        .from('accounts')
+        .select('id, name, picture_url')
+        .in('id', userIds);
+      accountsData = fallback.data;
     }
     
     const accountMap = new Map((accountsData || []).map(a => [a.id, a]));
@@ -109,13 +123,17 @@ export default async function LessonPage({
     });
   }
 
-  // Load user roles to check for moderation permission
+  // Load user roles to check for moderation and bypass permission
   const { data: rolesData } = await client
     .from('user_roles')
     .select('role')
-    .eq('user_id', user.id);
+    .eq('id', user.id);
   const userRoles = rolesData?.map((r) => r.role) || [];
-  const canModerate = userRoles.includes('admin') || userRoles.includes('profesor') || userRoles.includes('instructor');
+  const canModerate =
+    userRoles.includes('admin') ||
+    userRoles.includes('administrador') ||
+    userRoles.includes('profesor') ||
+    userRoles.includes('instructor');
 
   // Check if lesson requires passing a quiz (evaluating blocks)
   const hasBlocks = blocks && blocks.length > 0;
@@ -165,9 +183,12 @@ export default async function LessonPage({
 
         hasBlockingActivities = true;
         const passingScore = act.passing_score || 0;
-        const passed = attemptsData.some(a => a.activity_id === act.id && (a.score || 0) >= passingScore);
+        const attemptsForAct = attemptsData.filter(a => a.activity_id === act.id);
+        const passed = attemptsForAct.some(a => (a.score || 0) >= passingScore);
+        const hasSubmitted = attemptsForAct.length > 0;
         
-        if (!passed) {
+        // Si el estudiante ya presentó su intento (o aprobó), la lección se considera realizada
+        if (!passed && !hasSubmitted) {
           allPassed = false;
           break;
         }
@@ -181,7 +202,7 @@ export default async function LessonPage({
     }
   }
 
-  const canMarkAsCompleted = !requiresQuiz || hasPassedQuiz;
+  const canMarkAsCompleted = canModerate || !requiresQuiz || hasPassedQuiz;
 
   // Calculate next lesson
   const { data: courseModules } = await client
@@ -263,7 +284,7 @@ export default async function LessonPage({
                   <HelpCircle className="w-8 h-8" />
                   <h3 className="text-2xl font-bold">Actividad Evaluada</h3>
                 </div>
-                <QuizViewer activityId={c.activity_id} courseId={courseId} />
+                <QuizViewer activityId={c.activity_id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
               </div>
             );
           default:
@@ -323,7 +344,7 @@ export default async function LessonPage({
             <HelpCircle className="h-8 w-8" />
             <h3 className="text-2xl font-semibold">Cuestionario</h3>
           </div>
-          <QuizViewer activityId={directActivity.id} courseId={courseId} />
+          <QuizViewer activityId={directActivity.id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
         </div>
       );
     }

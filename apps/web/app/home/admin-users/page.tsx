@@ -27,7 +27,7 @@ export default async function AdminUsersPage() {
       adminClient.from('accounts').select('id, name, email, created_at').order('created_at', { ascending: false }),
       adminClient.from('user_roles').select('id, role'),
       client.from('courses').select('id, title').eq('status', 'published'),
-      adminClient.from('students').select('user_id, entry_date, modality')
+      adminClient.from('students').select('*')
     ]);
 
     accounts = accountsRes.data || [];
@@ -44,7 +44,7 @@ export default async function AdminUsersPage() {
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
   
   // Create a map for quick student data lookup
-  const studentMap = new Map((students || []).map(s => [s.user_id, { entry_date: s.entry_date, modality: s.modality }]));
+  const studentMap = new Map((students || []).map(s => [s.user_id, s]));
 
   const formattedUsers = (accounts || []).map((account: any) => {
     const studentData = studentMap.get(account.id);
@@ -56,6 +56,7 @@ export default async function AdminUsersPage() {
       created_at: account.created_at || new Date().toISOString(),
       semester: studentData?.entry_date ? calculateSemester(studentData.entry_date) : null,
       modality: studentData?.modality || null,
+      studentProfile: studentData || null,
     };
   });
 

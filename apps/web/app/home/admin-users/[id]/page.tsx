@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle, Clock, UserCog } from 'lucide-react';
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
@@ -8,6 +8,7 @@ import { PageBody, PageHeader } from '@kit/ui/page';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 import { Button } from '@kit/ui/button';
 import { ViewSubmissionDialog } from './_components/view-submission-dialog';
+import { EditUserDialog } from '../_components/edit-user-dialog';
 import { calculateSemester } from '../_lib/student-utils';
 
 export const metadata = {
@@ -38,6 +39,24 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
     .select('*')
     .eq('user_id', studentId)
     .maybeSingle();
+
+  // 1.8 Get user role
+  const { data: roleData } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', studentId)
+    .maybeSingle();
+
+  const userDataForEdit = {
+    id: account.id,
+    name: account.name || 'Sin Nombre',
+    email: account.email || '',
+    role: roleData?.role || 'alumno',
+    created_at: account.created_at || new Date().toISOString(),
+    semester: studentProfile?.entry_date ? calculateSemester(studentProfile.entry_date) : null,
+    modality: studentProfile?.modality || null,
+    studentProfile: studentProfile || null,
+  };
 
   // 2. Get enrolled courses
   const { data: enrollments } = await adminClient
@@ -97,7 +116,7 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
   const { data: attempts } = await adminClient
     .from('activity_attempts')
     .select(`
-      id, score, completed_at, attempt_number, file_url, answers_json,
+      id, score, status, completed_at, attempt_number, file_url, answers_json,
       activities (
         title, type, passing_score
       )
@@ -112,12 +131,23 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
         title={`Progreso: ${account.name || 'Estudiante'}`}
         description={`Panel de seguimiento para ${account.email}`}
       >
-        <Link href="/home/admin-users">
-          <Button variant="outline" size="sm" className="gap-2 text-slate-900 dark:text-slate-100">
-            <ArrowLeft className="h-4 w-4" />
-            <span translate="no">Volver a Usuarios</span>
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <EditUserDialog
+            user={userDataForEdit}
+            trigger={
+              <Button variant="outline" size="sm" className="gap-2 text-slate-900 dark:text-slate-100">
+                <UserCog className="h-4 w-4" />
+                <span translate="no">Editar Datos</span>
+              </Button>
+            }
+          />
+          <Link href="/home/admin-users">
+            <Button variant="outline" size="sm" className="gap-2 text-slate-900 dark:text-slate-100">
+              <ArrowLeft className="h-4 w-4" />
+              <span translate="no">Volver a Usuarios</span>
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       <PageBody>
@@ -128,9 +158,20 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
             {/* Tarjeta de Perfil del Estudiante */}
             {studentProfile && (
               <div className="bg-background rounded-xl border p-6">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-slate-100">
-                  <span translate="no">Información del Estudiante</span>
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                    <span translate="no">Información del Estudiante</span>
+                  </h2>
+                  <EditUserDialog
+                    user={userDataForEdit}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-primary hover:text-primary">
+                        <UserCog className="h-3.5 w-3.5" />
+                        <span>Editar</span>
+                      </Button>
+                    }
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground font-semibold" translate="no">Cédula / Documento</p>
@@ -230,9 +271,12 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
                     const activity = attempt.activities as any;
                     const passingScore = activity?.passing_score || 0;
                     const passed = (attempt.score || 0) >= passingScore;
+                    const isNeedsGrading = attempt.status === 'needs_grading';
                     const grade5 = (attempt.score || 0) / 20;
+                    const borderLeftColor = isNeedsGrading ? '#d97706' : (passed ? '#16a34a' : '#dc2626');
+
                     return (
-                      <div key={attempt.id} className="border-l-4 rounded bg-muted/30 p-3" style={{ borderLeftColor: passed ? '#16a34a' : '#dc2626' }}>
+                      <div key={attempt.id} className="border-l-4 rounded bg-muted/30 p-3" style={{ borderLeftColor }}>
                         <h4 className="font-semibold text-sm mb-1">{activity?.title || 'Cuestionario'}</h4>
                         <div className="flex justify-between items-end">
                           <div className="text-xs text-muted-foreground space-y-1">
@@ -243,11 +287,17 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
                             <div>Intento #{attempt.attempt_number || 1}</div>
                           </div>
                           <div className="text-right">
-                            <span className={`text-lg font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
-                              {grade5.toFixed(1)} / 5.0
-                            </span>
-                            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                              {passed ? 'Aprobado' : 'Reprobado'}
+                            {isNeedsGrading ? (
+                              <span className="text-xs font-bold text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded">
+                                Por calificar
+                              </span>
+                            ) : (
+                              <span className={`text-lg font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
+                                {grade5.toFixed(1)} / 5.0
+                              </span>
+                            )}
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mt-0.5">
+                              {isNeedsGrading ? 'En revisión' : passed ? 'Aprobado' : 'Reprobado'}
                             </div>
                           </div>
                         </div>

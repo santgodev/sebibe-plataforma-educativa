@@ -38,6 +38,7 @@ const BaseActivitySchema = z.object({
   max_attempts: z.number().int().min(1).optional(),
   time_limit_minutes: z.number().int().min(0).optional(),
   automatic_feedback_enabled: z.boolean().default(false),
+  randomize_order: z.boolean().default(false).optional(),
   questions: z.array(ActivityQuestionSchema).optional(),
 });
 

@@ -98,6 +98,8 @@ export class ActivityService {
     let earnedPoints = 0;
     const feedback: Record<string, { isCorrect: boolean, feedbackText?: string | null }> = {};
 
+    const hasOpenText = fullActivity.activity_questions.some((q: any) => q.type === 'open_text');
+
     for (const question of fullActivity.activity_questions) {
       totalPoints += question.points || 1;
       const studentAnswer = submittedAnswers[question.id];
@@ -119,30 +121,82 @@ export class ActivityService {
           const studentIds = Array.isArray(studentAnswer) ? [...studentAnswer].sort() : [];
           isCorrect = JSON.stringify(correctIds) === JSON.stringify(studentIds);
           break;
-        case 'matching':
-          // For matching, answers are stored as [{ answer_text: 'A|B', is_correct: true }] maybe?
-          // Or we can just do a basic string match for now
-          isCorrect = true; // Placeholder for complex matching logic
+        case 'matching': {
+          const normalize = (str: string) =>
+            str
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .trim()
+              .toLowerCase();
+
+          if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+            let allPairsCorrect = true;
+            let pairCount = 0;
+            for (const a of question.activity_answers) {
+              const parts = (a.answer_text || '').split('|').map((s: string) => s.trim());
+              if (parts.length >= 2) {
+                pairCount++;
+                const expectedDef = parts.slice(1).join('|').trim();
+                const studentVal = String(studentAnswer[a.id] || studentAnswer[parts[0]] || '').trim();
+                if (normalize(studentVal) !== normalize(expectedDef)) {
+                  allPairsCorrect = false;
+                  break;
+                }
+              }
+            }
+            isCorrect = allPairsCorrect && pairCount > 0;
+          } else {
+            isCorrect = false;
+          }
           break;
+        }
         case 'fill_blank':
-          const correctBlanks = question.activity_answers.filter((a: any) => a.is_correct).map((a: any) => a.answer_text.toLowerCase());
-          isCorrect = correctBlanks.includes(String(studentAnswer).toLowerCase());
+          // Las preguntas de completar espacios NO se califican automáticamente; el profesor debe asignar la nota
+          isCorrect = false;
           break;
         case 'open_text':
-          isCorrect = String(studentAnswer).trim().length > 0;
+          // Las preguntas abiertas NO se califican automáticamente; el profesor debe asignar la nota
+          isCorrect = false;
           break;
-        case 'order_steps':
-          const correctOrder = question.activity_answers.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)).map((a: any) => a.id);
-          isCorrect = JSON.stringify(correctOrder) === JSON.stringify(studentAnswer);
+        case 'order_steps': {
+          const sortedAnswers = [...question.activity_answers].sort(
+            (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)
+          );
+          const correctOrderIds = sortedAnswers.map((a: any) => a.id);
+          const correctOrderTexts = sortedAnswers.map((a: any) => (a.answer_text || '').trim().toLowerCase());
+          if (Array.isArray(studentAnswer)) {
+            const parsedStudentIds = studentAnswer.map((s: any) =>
+              typeof s === 'object' && s !== null && s.id ? s.id : String(s || '')
+            );
+            const isIdMatch = JSON.stringify(correctOrderIds) === JSON.stringify(parsedStudentIds);
+            const isTextMatch =
+              JSON.stringify(correctOrderTexts) ===
+              JSON.stringify(studentAnswer.map((s: any) => String(s || '').trim().toLowerCase()));
+            isCorrect = isIdMatch || isTextMatch;
+          } else {
+            isCorrect = false;
+          }
           break;
+        }
       }
 
       if (isCorrect) earnedPoints += question.points || 1;
-      feedback[question.id] = { isCorrect, feedbackText: question.feedback_text };
+      feedback[question.id] = {
+        isCorrect,
+        feedbackText: question.type === 'open_text'
+          ? 'Respuesta abierta enviada al profesor para su calificación manual.'
+          : question.type === 'fill_blank'
+          ? 'Respuesta de completar espacios enviada al profesor para su calificación manual.'
+          : question.feedback_text
+      };
     }
 
-    const scorePercentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+    const hasManualGrading = fullActivity.activity_questions.some(
+      (q: any) => q.type === 'open_text' || q.type === 'fill_blank'
+    );
+    const scorePercentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
     const passed = scorePercentage >= (fullActivity.passing_score || 0);
+    const status = hasManualGrading ? 'needs_grading' : (passed ? 'passed' : 'failed');
 
     // Save attempt
     const { error: insertError } = await this.repository['client'].from('activity_attempts').insert({
@@ -150,6 +204,7 @@ export class ActivityService {
       student_id: studentId,
       attempt_number: attemptNumber,
       score: scorePercentage,
+      status: status,
       answers_json: submittedAnswers,
       completed_at: new Date().toISOString()
     });
@@ -161,7 +216,9 @@ export class ActivityService {
 
     return {
       score: scorePercentage,
-      passed,
+      passed: hasManualGrading ? false : passed,
+      status,
+      needsGrading: hasManualGrading,
       feedback: fullActivity.automatic_feedback_enabled ? feedback : null
     };
   }
