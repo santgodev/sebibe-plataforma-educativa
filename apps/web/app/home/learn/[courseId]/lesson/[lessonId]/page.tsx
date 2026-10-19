@@ -74,7 +74,7 @@ export default async function LessonPage({
     .order('created_at', { ascending: false });
 
   // Load comments
-  const { data: commentsData, error: commentsError } = await client
+  const { data: commentsData } = await client
     .from('lesson_comments' as any)
     .select('id, content, created_at, user_id')
     .eq('lesson_id', lessonId)
@@ -259,7 +259,7 @@ export default async function LessonPage({
           case 'quote':
             return (
               <blockquote key={block.id} className="border-l-4 border-primary pl-6 italic text-xl text-muted-foreground py-2 my-8">
-                "{c?.text}"
+                &ldquo;{c?.text}&rdquo;
               </blockquote>
             );
           case 'pdf':
@@ -279,10 +279,10 @@ export default async function LessonPage({
           case 'activity':
             if (!c?.activity_id) return null;
             return (
-              <div key={block.id} className="mt-8 bg-card rounded-xl border p-6 shadow-sm">
-                <div className="flex items-center gap-3 text-primary mb-6">
-                  <HelpCircle className="w-8 h-8" />
-                  <h3 className="text-2xl font-bold">Actividad Evaluada</h3>
+              <div key={block.id} className="mt-4 sm:mt-8 bg-card rounded-xl border p-3.5 sm:p-6 shadow-sm">
+                <div className="flex items-center gap-2.5 text-primary mb-4 sm:mb-6">
+                  <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <h3 className="text-lg sm:text-2xl font-bold">Actividad Evaluada</h3>
                 </div>
                 <QuizViewer activityId={c.activity_id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
               </div>
@@ -339,10 +339,10 @@ export default async function LessonPage({
 
     if (type === 'quiz' && directActivity?.id) {
       return (
-        <div className="bg-card rounded-xl border p-8 shadow-sm mt-8">
-          <div className="mb-8 flex items-center gap-3 text-primary">
-            <HelpCircle className="h-8 w-8" />
-            <h3 className="text-2xl font-semibold">Cuestionario</h3>
+        <div className="bg-card rounded-xl border p-3.5 sm:p-6 md:p-8 shadow-sm mt-4 sm:mt-8">
+          <div className="mb-4 sm:mb-6 flex items-center gap-2.5 text-primary">
+            <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8" />
+            <h3 className="text-lg sm:text-2xl font-semibold">Cuestionario</h3>
           </div>
           <QuizViewer activityId={directActivity.id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
         </div>
@@ -363,25 +363,27 @@ export default async function LessonPage({
   return (
     <div className="flex w-full flex-col">
       {/* Header */}
-      <div className="mx-auto w-full max-w-5xl p-6 lg:p-10 border-b mb-8">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <h1 className="mb-2 text-2xl font-bold text-zinc-900 md:text-3xl">{lesson.title}</h1>
-          <CompleteLessonButton 
-            courseId={courseId} 
-            lessonId={lessonId} 
-            isAlreadyCompleted={isCompleted} 
-            isDisabled={!canMarkAsCompleted}
-            disabledReason="Debes aprobar el cuestionario de esta lección para poder completarla."
-          />
+      <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 sm:py-6 lg:p-10 border-b mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground leading-tight">{lesson.title}</h1>
+          <div className="w-full sm:w-auto">
+            <CompleteLessonButton 
+              courseId={courseId} 
+              lessonId={lessonId} 
+              isAlreadyCompleted={isCompleted} 
+              isDisabled={!canMarkAsCompleted}
+              disabledReason="Debes aprobar el cuestionario de esta lección para poder completarla."
+            />
+          </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="mx-auto w-full max-w-4xl px-6 lg:px-10 pb-10 space-y-10">
+      <div className="mx-auto w-full max-w-4xl px-3 sm:px-6 lg:px-10 pb-10 space-y-6 sm:space-y-10">
         {renderContent()}
 
         {/* Next lesson button */}
-        <div className="flex justify-end border-t pt-8">
+        <div className="flex justify-end border-t pt-6 sm:pt-8">
           <NextLessonButton
             courseId={courseId}
             lessonId={lessonId}

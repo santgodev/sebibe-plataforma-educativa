@@ -72,7 +72,7 @@ export function LessonNotes({ lessonId, initialNotes }: LessonNotesProps) {
   };
 
   return (
-    <div className="rounded-xl border bg-amber-50/50 p-6">
+    <div className="rounded-xl border bg-amber-50/50 p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <button
           onClick={() => setIsCollapsed((v) => !v)}

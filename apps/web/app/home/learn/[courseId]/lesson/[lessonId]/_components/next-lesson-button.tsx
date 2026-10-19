@@ -53,7 +53,7 @@ export function NextLessonButton({
     <Button
       onClick={handleNext}
       disabled={isPending || isDisabled}
-      className="gap-2 bg-slate-700 text-white hover:bg-slate-800"
+      className="w-full sm:w-auto gap-2 bg-slate-700 text-white hover:bg-slate-800"
       size="lg"
       title={isDisabled ? 'Debes aprobar el cuestionario primero' : undefined}
     >

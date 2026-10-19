@@ -10,7 +10,6 @@ import {
 } from '@kit/ui/page';
 import { SidebarProvider } from '@kit/ui/shadcn-sidebar';
 
-import { AppLogo } from '~/components/app-logo';
 import { navigationConfig } from '~/config/navigation.config';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { withI18n } from '~/lib/i18n/with-i18n';
@@ -18,7 +17,7 @@ import { requireUserInServerComponent } from '~/lib/server/require-user-in-serve
 
 // home imports
 import { HomeMenuNavigation } from './_components/home-menu-navigation';
-import { HomeMobileNavigation } from './_components/home-mobile-navigation';
+import { MobileNavigation } from './_components/mobile-navigation';
 import { HomeSidebar } from './_components/home-sidebar';
 
 function HomeLayout({ children }: React.PropsWithChildren) {
@@ -52,7 +51,7 @@ function SidebarLayout({ children, role }: React.PropsWithChildren<{ role?: stri
           <HomeSidebar user={user} role={role} />
         </PageNavigation>
 
-        <PageMobileNavigation className={'flex items-center justify-between'}>
+        <PageMobileNavigation className={'flex items-center justify-between has-[.hide-parent-mobile-nav]:!hidden'}>
           <MobileNavigation role={role} />
         </PageMobileNavigation>
 
@@ -69,7 +68,7 @@ function HeaderLayout({ children, role }: React.PropsWithChildren<{ role?: strin
         <HomeMenuNavigation role={role} />
       </PageNavigation>
 
-      <PageMobileNavigation className={'flex items-center justify-between'}>
+      <PageMobileNavigation className={'flex items-center justify-between has-[.hide-parent-mobile-nav]:!hidden'}>
         <MobileNavigation role={role} />
       </PageMobileNavigation>
 
@@ -78,15 +77,7 @@ function HeaderLayout({ children, role }: React.PropsWithChildren<{ role?: strin
   );
 }
 
-function MobileNavigation({ role }: { role?: string }) {
-  return (
-    <>
-      <AppLogo />
 
-      <HomeMobileNavigation role={role} />
-    </>
-  );
-}
 
 async function getLayoutStyle() {
   const cookieStore = await cookies();

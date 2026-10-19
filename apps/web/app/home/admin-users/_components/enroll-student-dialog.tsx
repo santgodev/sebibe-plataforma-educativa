@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
+import { Search, X, Check, BookOpen } from 'lucide-react';
 
 import { Button } from '@kit/ui/button';
+import { Input } from '@kit/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,18 @@ export function EnrollStudentDialog({
   onOpenChange,
 }: EnrollStudentDialogProps) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const filteredCourses = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return courses;
+    return courses.filter((c) => c.title.toLowerCase().includes(query));
+  }, [courses, searchQuery]);
+
+  const selectedCourse = useMemo(() => {
+    return courses.find((c) => c.id === selectedCourseId);
+  }, [courses, selectedCourseId]);
 
   const handleEnroll = async () => {
     if (!selectedCourseId) {
@@ -50,6 +63,7 @@ export function EnrollStudentDialog({
       toast.success('Estudiante inscrito exitosamente');
       onOpenChange(false);
       setSelectedCourseId('');
+      setSearchQuery('');
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);
@@ -59,42 +73,102 @@ export function EnrollStudentDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
+
+  const handleDialogChange = (open: boolean) => {
+    onOpenChange(open);
+    if (!open) {
+      setSelectedCourseId('');
+      setSearchQuery('');
+    }
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={handleDialogChange}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Inscribir a Materia</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            Inscribir a Materia
+          </DialogTitle>
           <DialogDescription>
             Inscribe a <strong>{userName}</strong> directamente en una materia. 
             El alumno tendrá acceso inmediato al contenido.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-3 block">
-            Selecciona la materia
-          </label>
-          <select
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={selectedCourseId}
-            onChange={(e) => setSelectedCourseId(e.target.value)}
-            disabled={isSubmitting}
-          >
-            <option value="" disabled>Seleccionar una materia...</option>
-            {courses.map(course => (
-              <option key={course.id} value={course.id}>
-                {course.title}
-              </option>
-            ))}
-          </select>
+        <div className="py-2 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar materia por nombre..."
+              className="pl-8 pr-7 h-9 text-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="text-xs text-muted-foreground flex justify-between px-0.5">
+            <span>Materias disponibles: {filteredCourses.length} de {courses.length}</span>
+            {selectedCourse && (
+              <span className="text-primary font-medium">1 seleccionada</span>
+            )}
+          </div>
+
+          <div className="max-h-[220px] overflow-y-auto border rounded-lg p-1 space-y-1 divide-y divide-border/40">
+            {courses.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                No hay materias publicadas disponibles.
+              </div>
+            ) : filteredCourses.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                No se encontraron materias con "{searchQuery}".
+              </div>
+            ) : (
+              filteredCourses.map((course) => {
+                const isSelected = selectedCourseId === course.id;
+
+                return (
+                  <div
+                    key={course.id}
+                    onClick={() => setSelectedCourseId(course.id)}
+                    className={`flex items-center justify-between p-2.5 rounded-md cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-primary/10 border border-primary text-primary font-medium'
+                        : 'hover:bg-muted/60 text-foreground border border-transparent'
+                    }`}
+                  >
+                    <span className="text-sm truncate">{course.title}</span>
+                    <div
+                      className={`h-4 w-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                        isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-muted-foreground/30'
+                      }`}
+                    >
+                      {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleDialogChange(false)}
             disabled={isSubmitting}
           >
             Cancelar

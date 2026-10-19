@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { MoreHorizontal, PlusCircle, UserCog, LineChart } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, UserCog, LineChart, Search, X } from 'lucide-react';
+import { Input } from '@kit/ui/input';
 import {
   Table,
   TableBody,
@@ -53,7 +54,7 @@ export type UserData = {
   email: string;
   role: string | null;
   created_at: string;
-  semester?: number | null;
+  semester?: string | null;
   modality?: string | null;
   studentProfile?: StudentProfile | null;
 };
@@ -62,6 +63,7 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
   const [enrollDialogUserId, setEnrollDialogUserId] = useState<string | null>(null);
   
   // Filters state
+  const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
   const [modalityFilter, setModalityFilter] = useState<string>('all');
@@ -75,24 +77,70 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
     );
   }
 
-  const filteredUsers = users.filter((u) => {
-    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
-    if (semesterFilter !== 'all' && u.semester?.toString() !== semesterFilter) return false;
-    if (modalityFilter !== 'all' && u.modality !== modalityFilter) return false;
-    return true;
-  });
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return users.filter((u) => {
+      if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+      if (semesterFilter !== 'all' && u.semester !== semesterFilter) return false;
+      if (modalityFilter !== 'all' && u.modality !== modalityFilter) return false;
+
+      if (query) {
+        const nameMatch = u.name?.toLowerCase().includes(query) ?? false;
+        const emailMatch = u.email?.toLowerCase().includes(query) ?? false;
+        const docMatch = u.studentProfile?.document_id?.toLowerCase().includes(query) ?? false;
+        if (!nameMatch && !emailMatch && !docMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [users, roleFilter, semesterFilter, modalityFilter, searchQuery]);
 
   // Calculate unique available semesters
-  const availableSemesters = Array.from(
-    new Set(users.map(u => u.semester).filter((s): s is number => s != null))
-  ).sort((a, b) => a - b);
+  const availableSemesters = useMemo(() => {
+    return Array.from(
+      new Set(users.map(u => u.semester).filter((s): s is string => !!s))
+    ).sort().reverse();
+  }, [users]);
+
+  const hasActiveFilters = searchQuery !== '' || roleFilter !== 'all' || semesterFilter !== 'all' || modalityFilter !== 'all';
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setSemesterFilter('all');
+    setModalityFilter('all');
+  };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
+      {/* Search and Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Search input */}
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre, correo o cédula..."
+            className="pl-9 pr-8 h-10"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[160px] h-10">
             <SelectValue placeholder="Rol" />
           </SelectTrigger>
           <SelectContent>
@@ -104,21 +152,22 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
         </Select>
 
         <Select value={semesterFilter} onValueChange={setSemesterFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[160px] h-10">
             <SelectValue placeholder="Semestre" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los semestres</SelectItem>
             {availableSemesters.map(sem => (
-              <SelectItem key={sem} value={sem.toString()}>
-                Semestre {sem}
+              <SelectItem key={sem} value={sem}>
+                {sem}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
+
         <Select value={modalityFilter} onValueChange={setModalityFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[160px] h-10">
             <SelectValue placeholder="Modalidad" />
           </SelectTrigger>
           <SelectContent>
@@ -127,9 +176,32 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
             <SelectItem value="virtual">Virtual</SelectItem>
           </SelectContent>
         </Select>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="h-10 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpiar
+          </Button>
+        )}
       </div>
 
-      <div className="rounded-md border">
+      {/* Results counter */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <span>
+          Mostrando <strong className="text-foreground">{filteredUsers.length}</strong> de <strong className="text-foreground">{users.length}</strong> usuarios
+        </span>
+        {hasActiveFilters && (
+          <span className="text-primary font-medium">Filtro aplicado</span>
+        )}
+      </div>
+
+
+      <div className="rounded-md border overflow-x-auto">
         <Table>
         <TableHeader>
           <TableRow>
@@ -172,8 +244,8 @@ export function UsersTable({ users, courses }: { users: UserData[], courses: { i
                   {user.role || 'Sin rol'}
                 </span>
               </TableCell>
-              <TableCell>
-                {user.semester ? `Sem. ${user.semester}` : '-'}
+              <TableCell className="font-medium whitespace-nowrap">
+                {user.semester || '-'}
               </TableCell>
               <TableCell className="capitalize">
                 {user.modality || '-'}

@@ -66,24 +66,39 @@ export function generateEmailCombinations(names: string, lastNames: string): str
 }
 
 /**
- * Calcula el semestre académico basado en la fecha de ingreso.
- * Cada 6 meses de calendario (Ene-Jun, Jul-Dic) cuenta como un nuevo semestre.
+ * Calcula el periodo o semestre basado en la fecha de inscripción (ej: '2026 - I', '2026 - II').
+ * De Enero a Junio corresponde al ciclo I.
+ * De Julio a Diciembre corresponde al ciclo II.
  */
-export function calculateSemester(entryDateString: string | null | undefined): number {
-  if (!entryDateString) return 1;
-  const entryDate = new Date(entryDateString);
-  const now = new Date();
+export function calculateSemester(entryDateString: string | null | undefined): string {
+  if (!entryDateString) {
+    const now = new Date();
+    const period = now.getMonth() < 6 ? 'I' : 'II';
+    return `${now.getFullYear()} - ${period}`;
+  }
 
-  // Si la fecha es inválida o en el futuro, asume semestre 1
-  if (isNaN(entryDate.getTime()) || entryDate > now) return 1;
+  // Si la fecha viene en formato YYYY-MM-DD
+  if (typeof entryDateString === 'string' && entryDateString.includes('-')) {
+    const parts = entryDateString.split('-');
+    if (parts.length >= 2) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      if (!isNaN(year) && !isNaN(month)) {
+        const period = month <= 6 ? 'I' : 'II';
+        return `${year} - ${period}`;
+      }
+    }
+  }
 
-  const entryYear = entryDate.getFullYear();
-  const entryHalf = entryDate.getMonth() < 6 ? 0 : 1; // 0 para Ene-Jun, 1 para Jul-Dic
+  const date = new Date(entryDateString);
+  if (isNaN(date.getTime())) {
+    const now = new Date();
+    const period = now.getMonth() < 6 ? 'I' : 'II';
+    return `${now.getFullYear()} - ${period}`;
+  }
 
-  const currentYear = now.getFullYear();
-  const currentHalf = now.getMonth() < 6 ? 0 : 1;
-
-  const semestersPassed = (currentYear - entryYear) * 2 + (currentHalf - entryHalf);
-  
-  return semestersPassed + 1;
+  const year = date.getFullYear();
+  const period = date.getMonth() < 6 ? 'I' : 'II';
+  return `${year} - ${period}`;
 }
+

@@ -91,28 +91,28 @@ export default async function CourseLandingPage({
   return (
     <div className="bg-background w-full pb-20">
       {/* Hero Section */}
-      <section className="w-full bg-slate-950 px-6 py-16 text-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
-          <div className="flex flex-col gap-6">
+      <section className="w-full bg-slate-950 px-4 py-8 sm:px-6 sm:py-16 text-white">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-6 sm:gap-12 lg:grid-cols-2">
+          <div className="flex flex-col gap-4 sm:gap-6">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-300">
+              <span className="text-xs sm:text-sm font-medium text-gray-300">
                 {course.duration_minutes} minutos
               </span>
             </div>
 
-            <h1 className="text-4xl leading-tight font-extrabold md:text-5xl">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl leading-tight font-extrabold">
               {course.title}
             </h1>
 
-            <p className="max-w-xl text-lg leading-relaxed text-gray-300">
+            <p className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-gray-300">
               {course.short_description}
             </p>
 
             {firstLessonId && (
-              <div className="pt-4">
+              <div className="pt-2 sm:pt-4">
                 <Link
                   href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-bold transition-colors"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3.5 sm:py-4 text-base sm:text-lg font-bold transition-colors"
                 >
                   <PlayCircle className="h-5 w-5" />
                   Iniciar materia
@@ -140,22 +140,22 @@ export default async function CourseLandingPage({
       </section>
 
       {/* Course Details & Syllabus */}
-      <section className="mx-auto mt-12 grid w-full max-w-4xl grid-cols-1 gap-12 px-6 md:grid-cols-3">
-        <div className="space-y-12 md:col-span-2">
+      <section className="mx-auto mt-6 sm:mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:gap-12 px-4 sm:px-6 md:grid-cols-3">
+        <div className="space-y-8 sm:space-y-12 md:col-span-2">
           {/* About */}
           <div>
-            <h2 className="mb-6 text-2xl font-bold text-slate-900">Acerca de esta materia</h2>
-            <div className="prose text-muted-foreground max-w-none leading-relaxed">
+            <h2 className="mb-4 sm:mb-6 text-xl sm:text-2xl font-bold text-slate-900">Acerca de esta materia</h2>
+            <div className="prose text-muted-foreground max-w-none text-sm sm:text-base leading-relaxed">
               <p>{course.long_description || course.short_description}</p>
             </div>
           </div>
 
           {/* Syllabus (Contenido del curso) */}
           <div id="temario">
-            <div className="mb-6 flex items-end justify-between">
+            <div className="mb-4 sm:mb-6 flex items-end justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Contenido de la materia</h2>
-                <p className="text-muted-foreground mt-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Contenido de la materia</h2>
+                <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
                   {modules.length} módulos • {totalLessons} clases
                 </p>
               </div>
@@ -171,7 +171,7 @@ export default async function CourseLandingPage({
                     <AccordionItem
                       value={`module-${mod.id}`}
                       key={mod.id}
-                      className="border-b px-6 py-2 last:border-0"
+                      className="border-b px-3.5 sm:px-6 py-1.5 sm:py-2 last:border-0"
                     >
                       <AccordionTrigger className="py-4 hover:no-underline">
                         <div className="flex flex-col items-start gap-1 text-left">

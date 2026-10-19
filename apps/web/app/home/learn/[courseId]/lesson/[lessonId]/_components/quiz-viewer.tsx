@@ -520,13 +520,13 @@ export function QuizViewer({
 
   if (!isStarted) {
     return (
-      <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-12 shadow-sm text-center">
-        <HelpCircle className="h-16 w-16 text-primary mx-auto mb-6" />
-        <h2 className="text-3xl font-bold mb-4">{activity.title}</h2>
+      <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-4 sm:p-8 md:p-12 shadow-sm text-center">
+        <HelpCircle className="h-12 w-12 sm:h-16 sm:w-16 text-primary mx-auto mb-4 sm:mb-6" />
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4">{activity.title}</h2>
         {activity.description && (
-          <p className="text-muted-foreground mb-6 text-lg">{activity.description}</p>
+          <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base md:text-lg">{activity.description}</p>
         )}
-        <div className="flex flex-col gap-3 mb-10 max-w-sm mx-auto text-sm text-muted-foreground bg-muted/20 p-6 rounded-xl border text-left">
+        <div className="flex flex-col gap-2.5 mb-6 sm:mb-10 max-w-sm mx-auto text-xs sm:text-sm text-muted-foreground bg-muted/20 p-4 sm:p-6 rounded-xl border text-left">
           {activity.passing_score !== undefined && (
             <div className="flex justify-between border-b pb-2">
               <span className="font-semibold text-foreground">Nota para aprobar:</span>
@@ -627,7 +627,7 @@ export function QuizViewer({
           }
           
           return (
-            <Button size="lg" className="px-12 text-lg h-14" onClick={() => setIsStarted(true)}>
+            <Button size="lg" className="w-full sm:w-auto px-6 sm:px-12 text-base sm:text-lg h-12 sm:h-14" onClick={() => setIsStarted(true)}>
               {pastAttempts.length > 0 ? 'Reintentar Cuestionario' : 'Comenzar Cuestionario'}
             </Button>
           );
@@ -637,19 +637,19 @@ export function QuizViewer({
   }
 
   return (
-    <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-8 shadow-sm">
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-        <div className="flex items-center gap-3">
-          <HelpCircle className="h-8 w-8 text-primary" />
+    <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-3.5 sm:p-6 md:p-8 shadow-sm">
+      <div className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b pb-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
           <div>
-            <h2 className="text-foreground text-2xl font-bold">{activity.title}</h2>
+            <h2 className="text-foreground text-xl sm:text-2xl font-bold">{activity.title}</h2>
             {activity.passing_score && (
-              <p className="text-sm text-muted-foreground">Nota mínima para aprobar: {(activity.passing_score / 20).toFixed(1)} de 5.0</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Nota mínima para aprobar: {(activity.passing_score / 20).toFixed(1)} de 5.0</p>
             )}
           </div>
         </div>
         {activity.time_limit_minutes && !result && (
-          <div className="bg-muted/30 px-4 py-2 rounded-lg font-mono text-lg font-semibold border">
+          <div className="self-start md:self-auto bg-muted/30 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-mono text-base sm:text-lg font-semibold border">
             {activity.time_limit_minutes}:00
           </div>
         )}
@@ -664,7 +664,7 @@ export function QuizViewer({
           return (
             <div
               key={q.id}
-              className={`space-y-4 p-6 rounded-xl border ${
+              className={`space-y-3 sm:space-y-4 p-3.5 sm:p-6 rounded-xl border ${
                 result
                   ? isManualGradingType
                     ? 'border-amber-500/40 bg-amber-500/5'
@@ -674,10 +674,10 @@ export function QuizViewer({
                   : 'bg-card'
               }`}
             >
-              <div className="flex gap-3">
-                <span className="text-muted-foreground font-bold">{idx + 1}.</span>
-                <div className="flex-1">
-                  <h3 className="text-foreground text-lg leading-relaxed font-medium">
+              <div className="flex gap-2.5 sm:gap-3">
+                <span className="text-muted-foreground font-bold text-sm sm:text-base">{idx + 1}.</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-foreground text-base sm:text-lg leading-snug sm:leading-relaxed font-medium">
                     {q.question_text}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
@@ -704,7 +704,7 @@ export function QuizViewer({
                 )}
               </div>
 
-              <div className="space-y-3 pl-8">
+              <div className="space-y-2.5 sm:space-y-3 pl-0 sm:pl-7">
                 {(q.type === 'single_choice' || q.type === 'true_false') && q.activity_answers?.filter((opt: any) => opt.answer_text && opt.answer_text.trim() !== '').map((opt: any) => {
                   const isSelected = answers[q.id] === opt.id;
                   let optionStyle = 'border-muted bg-background hover:border-primary/50 cursor-pointer';
@@ -717,12 +717,12 @@ export function QuizViewer({
                     <div
                       key={opt.id}
                       onClick={() => handleSelect(q.id, opt.id)}
-                      className={`flex items-center gap-3 rounded-lg border p-4 transition-all ${optionStyle}`}
+                      className={`flex items-center gap-3 rounded-xl border p-3 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
                     >
                       <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary' : 'border-muted-foreground'}`}>
                         {isSelected && <div className="bg-primary h-2.5 w-2.5 rounded-full" />}
                       </div>
-                      <span className="text-foreground">{opt.answer_text}</span>
+                      <span className="text-foreground leading-snug">{opt.answer_text}</span>
                     </div>
                   );
                 })}
@@ -738,12 +738,12 @@ export function QuizViewer({
                     <div
                       key={opt.id}
                       onClick={() => handleSelect(q.id, opt.id, true)}
-                      className={`flex items-center gap-3 rounded-lg border p-4 transition-all ${optionStyle}`}
+                      className={`flex items-center gap-3 rounded-xl border p-3 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
                     >
                       <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
                         {isSelected && <CheckCircle2 className="w-4 h-4 text-primary-foreground" />}
                       </div>
-                      <span className="text-foreground">{opt.answer_text}</span>
+                      <span className="text-foreground leading-snug">{opt.answer_text}</span>
                     </div>
                   );
                 })}

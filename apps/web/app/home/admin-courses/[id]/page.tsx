@@ -10,6 +10,7 @@ import { CourseSettingsForm } from './_components/course-settings-form';
 import { CourseEnrollmentsForm } from './_components/course-enrollments-form';
 import { CourseGradesView } from './_components/course-grades-view';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
+import { calculateSemester } from '~/home/admin-users/_lib/student-utils';
 
 export const metadata = {
   title: 'Editar Materia',
@@ -56,17 +57,29 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
 
   const adminClient = getSupabaseServerAdminClient();
 
-  // Fetch all accounts
-  const { data: accounts } = await adminClient.from('accounts').select('id, name, email').order('name', { ascending: true });
+  // Fetch accounts, roles, and student profiles
+  const [{ data: accounts }, { data: roles }, { data: studentProfiles }] = await Promise.all([
+    adminClient.from('accounts').select('id, name, email').order('name', { ascending: true }),
+    adminClient.from('user_roles').select('id, role'),
+    adminClient.from('students').select('user_id, entry_date, modality')
+  ]);
   
-  // Fetch roles to filter out admins and teachers
-  const { data: roles } = await adminClient.from('user_roles').select('id, role');
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
+  const profileMap = new Map((studentProfiles || []).map(s => [s.user_id, s]));
 
-  // Filter accounts to only include students (role is either 'alumno' or undefined)
+  // Filter accounts to only include students (role is either 'alumno' or undefined) and enrich with semester
   const students = (accounts || []).filter(account => {
     const role = roleMap.get(account.id);
     return !role || role === 'alumno';
+  }).map(account => {
+    const prof = profileMap.get(account.id);
+    return {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      semester: prof?.entry_date ? calculateSemester(prof.entry_date) : calculateSemester(null),
+      modality: prof?.modality || null,
+    };
   });
 
   // Fetch current enrollments for this course

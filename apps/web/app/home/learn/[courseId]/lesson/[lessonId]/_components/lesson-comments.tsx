@@ -112,9 +112,9 @@ export function LessonComments({
   };
 
   return (
-    <div className="rounded-xl border bg-white p-6">
+    <div className="rounded-xl border bg-card p-4 sm:p-6">
       {/* Header */}
-      <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold text-zinc-800">
+      <h3 className="mb-4 sm:mb-6 flex items-center gap-2 text-base sm:text-lg font-semibold text-zinc-800">
         <MessageCircle className="h-5 w-5 text-slate-500" />
         Comentarios
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
@@ -123,7 +123,7 @@ export function LessonComments({
       </h3>
 
       {/* New comment box */}
-      <div className="mb-8 flex gap-3">
+      <div className="mb-6 sm:mb-8 flex gap-2.5 sm:gap-3">
         <Avatar name={currentUserDisplayName} url={currentUserAvatarUrl} />
         <div className="flex-1">
           <Textarea
@@ -133,7 +133,7 @@ export function LessonComments({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit();
             }}
-            className="mb-2 min-h-[80px] resize-none rounded-xl border-slate-200 bg-slate-50 text-sm text-zinc-800 placeholder:text-zinc-400 focus:bg-white"
+            className="mb-2 min-h-[70px] sm:min-h-[80px] resize-none rounded-xl border-slate-200 bg-slate-50 text-sm text-zinc-800 placeholder:text-zinc-400 focus:bg-white"
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-zinc-400">Ctrl+Enter para enviar</span>
@@ -161,15 +161,15 @@ export function LessonComments({
             const canDelete =
               canModerate || comment.user_id === currentUserId;
             return (
-              <li key={comment.id} className="group flex gap-3 py-4">
+              <li key={comment.id} className="group flex gap-2.5 sm:gap-3 py-3 sm:py-4">
                 <Avatar name={comment.display_name} url={comment.avatar_url} />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-zinc-800">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-zinc-800 truncate">
                         {comment.display_name || 'Estudiante'}
                       </span>
-                      <span className="text-xs text-zinc-400">
+                      <span className="text-[11px] text-zinc-400">
                         {timeAgo(comment.created_at)}
                       </span>
                     </div>
@@ -177,7 +177,7 @@ export function LessonComments({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-zinc-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                        className="h-7 w-7 text-zinc-300 opacity-100 sm:opacity-0 transition-opacity hover:text-red-500 sm:group-hover:opacity-100"
                         onClick={() => handleDelete(comment.id)}
                         title="Eliminar comentario"
                       >

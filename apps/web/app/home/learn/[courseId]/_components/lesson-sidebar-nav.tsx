@@ -22,9 +22,15 @@ interface LessonSidebarNavProps {
   courseId: string;
   modules: Module[];
   completedLessonsSet: string[]; // array of lesson IDs
+  onSelectLesson?: () => void;
 }
 
-export function LessonSidebarNav({ courseId, modules, completedLessonsSet }: LessonSidebarNavProps) {
+export function LessonSidebarNav({
+  courseId,
+  modules,
+  completedLessonsSet,
+  onSelectLesson,
+}: LessonSidebarNavProps) {
   const pathname = usePathname();
   const completedSet = new Set(completedLessonsSet);
 
@@ -51,6 +57,7 @@ export function LessonSidebarNav({ courseId, modules, completedLessonsSet }: Les
                 <li key={lesson.id}>
                   <Link
                     href={`/home/learn/${courseId}/lesson/${lesson.id}`}
+                    onClick={() => onSelectLesson?.()}
                     className={`group flex items-start gap-2.5 rounded-md px-2 py-2 text-sm transition-all ${
                       isActive
                         ? 'bg-slate-700 text-white font-semibold shadow-sm'

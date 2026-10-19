@@ -2,13 +2,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
-import { SidebarTrigger } from '@kit/ui/shadcn-sidebar';
-import { Target, TrendingUp, Trophy } from 'lucide-react';
 
 import { ProgressService } from '~/lib/lms/server/services/progress.service';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
 import { LessonSidebarNav } from './_components/lesson-sidebar-nav';
+import { LearnHeader } from './_components/learn-header';
 
 export default async function LearningLayout({
   children,
@@ -62,15 +61,14 @@ export default async function LearningLayout({
   });
 
   return (
-    <div className="bg-background flex h-[calc(100vh-4rem)] flex-col overflow-hidden md:flex-row">
-      {/* Sidebar Temario */}
-      <aside className="bg-muted/20 flex h-full w-full flex-col overflow-y-auto border-r md:w-80">
-        <div className="bg-background sticky top-0 z-10 border-b p-4 shadow-sm">
+    <div className="bg-background flex h-dvh md:h-[calc(100dvh-4rem)] flex-col overflow-hidden md:flex-row -mx-4 lg:mx-0">
+      {/* Sidebar Temario (visible en desktop, en móvil se accede desde el botón Temario del header) */}
+      <aside className="bg-muted/20 hidden md:flex h-full w-80 shrink-0 flex-col overflow-y-auto border-r">
+        <div className="bg-background sticky top-0 z-10 border-b p-4 shadow-xs">
           <div className="mb-3 flex items-center gap-3">
-            <SidebarTrigger className="bg-primary/10 text-primary hover:bg-primary border-primary/20 flex h-9 w-9 items-center justify-center rounded-md border p-2 transition-colors hover:text-white" />
             <Link
               href="/home/courses"
-              className="text-foreground/70 hover:text-primary text-sm font-medium transition-colors"
+              className="text-foreground/70 hover:text-primary text-xs font-semibold transition-colors flex items-center gap-1"
             >
               ← Volver al catálogo
             </Link>
@@ -88,55 +86,18 @@ export default async function LearningLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="bg-background relative flex h-full flex-1 flex-col overflow-y-auto">
-        
-        {/* Top Header estilo Udemy/Platzi */}
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-end border-b bg-white px-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Tu progreso</span>
-              <span className="text-sm font-bold text-zinc-900">{progressPercentage}% completado</span>
-            </div>
-            
-            {/* Progress Circular o Barra sutil */}
-            <div className="relative flex h-10 w-10 items-center justify-center">
-              <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 100 100">
-                <circle
-                  className="text-zinc-100"
-                  strokeWidth="8"
-                  stroke="currentColor"
-                  fill="transparent"
-                  r="40"
-                  cx="50"
-                  cy="50"
-                />
-                <circle
-                  className="text-primary transition-all duration-1000 ease-in-out"
-                  strokeWidth="8"
-                  strokeDasharray={251.2}
-                  strokeDashoffset={251.2 - (251.2 * progressPercentage) / 100}
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="transparent"
-                  r="40"
-                  cx="50"
-                  cy="50"
-                />
-              </svg>
-              <div className="absolute flex items-center justify-center text-primary">
-                {progressPercentage === 0 ? (
-                  <Target className="h-4 w-4" />
-                ) : progressPercentage === 100 ? (
-                  <Trophy className="h-4 w-4" />
-                ) : (
-                  <TrendingUp className="h-4 w-4" />
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
+      <main className="bg-background relative flex h-full flex-1 min-w-0 flex-col overflow-y-auto">
+        <LearnHeader
+          courseId={courseId}
+          courseTitle={course.title}
+          modules={modules as any}
+          completedLessonsSet={Array.from(completedLessonsSet)}
+          progressPercentage={progressPercentage}
+        />
 
-        {children}
+        <div className="flex-1 w-full min-w-0">
+          {children}
+        </div>
       </main>
     </div>
   );

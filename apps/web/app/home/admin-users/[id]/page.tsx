@@ -196,7 +196,7 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
                   <div>
                     <p className="text-muted-foreground font-semibold" translate="no">Semestre Actual</p>
                     <p className="text-slate-900 dark:text-slate-100 font-medium" translate="no">
-                      Semestre {studentProfile.entry_date ? calculateSemester(studentProfile.entry_date) : 1}
+                      {studentProfile.entry_date ? calculateSemester(studentProfile.entry_date) : 'Sin fecha de ingreso'}
                     </p>
                   </div>
                   <div>

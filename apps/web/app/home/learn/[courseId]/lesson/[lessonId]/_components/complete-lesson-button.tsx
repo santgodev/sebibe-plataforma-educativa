@@ -62,7 +62,7 @@ export function CompleteLessonButton({
       onClick={handleComplete}
       disabled={isPending || completed || isDisabled}
       variant={completed ? 'secondary' : 'default'}
-      className="shrink-0 gap-2 font-medium shadow-sm"
+      className="w-full sm:w-auto shrink-0 gap-2 font-medium shadow-sm"
       title={isDisabled ? disabledReason : undefined}
     >
       {isPending ? (

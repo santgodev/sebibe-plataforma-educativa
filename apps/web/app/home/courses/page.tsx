@@ -186,30 +186,30 @@ export default async function CoursesCatalogPage() {
                       </div>
                     )}
                   </div>
-                  <div className="p-8 md:w-3/5 flex flex-col justify-center">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+                  <div className="p-4 sm:p-6 md:p-8 md:w-3/5 flex flex-col justify-center">
+                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                      <span className="bg-primary/10 text-primary px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold uppercase tracking-widest">
                         Materia Activa
                       </span>
                     </div>
-                    <h3 className="text-3xl font-extrabold text-slate-900 mb-3">{activeCourse.title}</h3>
-                    <p className="text-muted-foreground text-lg mb-8 line-clamp-2">
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 mb-2 sm:mb-3 leading-tight">{activeCourse.title}</h3>
+                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mb-4 sm:mb-6 line-clamp-2">
                       {activeCourse.short_description}
                     </p>
                     
-                    <div className="mb-8 p-5 bg-muted/30 rounded-xl border">
+                    <div className="mb-6 sm:mb-8 p-3.5 sm:p-5 bg-muted/30 rounded-xl border">
                       <div className="flex justify-between items-end mb-2">
                         <div>
-                          <p className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Tu progreso general</p>
-                          <p className="text-slate-900 font-medium">Llevas completado el <span className="text-primary font-bold">{progressMap.get(activeCourse.id) || 0}%</span> de la materia</p>
+                          <p className="text-xs sm:text-sm font-semibold text-muted-foreground mb-0.5 sm:mb-1 uppercase tracking-wider">Tu progreso general</p>
+                          <p className="text-xs sm:text-sm text-slate-900 font-medium">Llevas completado el <span className="text-primary font-bold">{progressMap.get(activeCourse.id) || 0}%</span> de la materia</p>
                         </div>
-                        <div className="text-primary font-bold text-xl">
+                        <div className="text-primary font-bold text-base sm:text-xl">
                           {progressMap.get(activeCourse.id) || 0}%
                         </div>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-3 overflow-hidden shadow-inner">
+                      <div className="w-full bg-muted rounded-full h-2.5 sm:h-3 overflow-hidden shadow-inner">
                         <div 
-                          className="bg-primary h-3 rounded-full transition-all duration-1000 ease-out" 
+                          className="bg-primary h-2.5 sm:h-3 rounded-full transition-all duration-1000 ease-out" 
                           style={{ width: `${progressMap.get(activeCourse.id) || 0}%` }}
                         />
                       </div>
@@ -217,7 +217,7 @@ export default async function CoursesCatalogPage() {
 
                     <Link
                       href={`/home/courses/${activeCourse.slug}`}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-center rounded-xl px-8 py-4 font-bold text-lg shadow-lg transition-all hover:-translate-y-1"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-center rounded-xl w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 font-bold text-base sm:text-lg shadow-md transition-all hover:-translate-y-0.5"
                     >
                       Continuar clase
                     </Link>

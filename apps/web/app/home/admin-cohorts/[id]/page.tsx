@@ -8,6 +8,9 @@ import { Button } from '@kit/ui/button';
 import { AddStudentDialog } from './_components/add-student-dialog';
 import { MigrateCohortDialog } from './_components/migrate-cohort-dialog';
 import { AddScheduleDialog } from './_components/add-schedule-dialog';
+import { CohortStudentsList } from './_components/cohort-students-list';
+
+import { calculateSemester } from '~/home/admin-users/_lib/student-utils';
 
 export const metadata = {
   title: 'Detalles del Grupo',
@@ -40,15 +43,25 @@ export default async function CohortDetailsPage({
     );
   }
 
-  // Load accounts and roles
-  const [{ data: accounts }, { data: roles }] = await Promise.all([
+  // Load accounts, roles, and student profiles
+  const [{ data: accounts }, { data: roles }, { data: studentProfiles }] = await Promise.all([
     client.from('accounts').select('id, name, email'),
-    client.from('user_roles').select('id, role')
+    client.from('user_roles').select('id, role'),
+    client.from('students').select('user_id, modality, document_id, entry_date')
   ]);
 
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
+  const profileMap = new Map((studentProfiles || []).map(s => [s.user_id, s]));
   
-  const allAlumnos = (accounts || []).filter(a => roleMap.get(a.id) === 'alumno' || !roleMap.has(a.id));
+  const allAlumnos = (accounts || []).filter(a => roleMap.get(a.id) === 'alumno' || !roleMap.has(a.id)).map(a => {
+    const prof = profileMap.get(a.id);
+    return {
+      ...a,
+      modality: prof?.modality || null,
+      document_id: prof?.document_id || null,
+      semester: prof?.entry_date ? calculateSemester(prof.entry_date) : calculateSemester(null),
+    };
+  });
   const allProfesores = (accounts || []).filter(a => roleMap.get(a.id) === 'profesor' || roleMap.get(a.id) === 'administrador');
 
   // Load enrolled students
@@ -171,23 +184,9 @@ export default async function CohortDetailsPage({
               </div>
             </div>
             
-            <div className="space-y-2 flex-1">
-              {!enrolledStudents || enrolledStudents.length === 0 ? (
-                <div className="text-muted-foreground bg-muted/20 rounded-xl border p-8 text-center text-sm">
-                  No hay estudiantes en este grupo.
-                </div>
-              ) : (
-                enrolledStudents.map(student => (
-                  <div key={student.id} className="border p-3 rounded-lg flex items-center justify-between bg-card">
-                    <div>
-                      <p className="font-medium text-sm">{student.name}</p>
-                      <p className="text-xs text-muted-foreground">{student.email}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <CohortStudentsList students={enrolledStudents} />
           </div>
+
         </div>
       </PageBody>
     </>
