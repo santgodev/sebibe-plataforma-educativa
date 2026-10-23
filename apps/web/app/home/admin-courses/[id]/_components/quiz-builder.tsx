@@ -288,12 +288,16 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
               { id: crypto.randomUUID(), answer_text: '', is_correct: true, order_index: 1 },
             ];
           } else if (value === 'fill_blank') {
-            updatedQ.answers = [
-              { id: crypto.randomUUID(), answer_text: '', is_correct: true, order_index: 0 },
-            ];
             if (updatedQ.question_text && !updatedQ.question_text.includes('[___]')) {
               updatedQ.question_text = updatedQ.question_text + ' [___]';
             }
+            const blanks = Math.max(1, (updatedQ.question_text || '').split('[___]').length - 1);
+            updatedQ.answers = Array.from({ length: blanks }, (_, idx) => ({
+              id: crypto.randomUUID(),
+              answer_text: '',
+              is_correct: true,
+              order_index: idx,
+            }));
           } else if (value === 'open_text') {
             updatedQ.answers = [];
           } else if (value === 'single_choice') {
@@ -493,19 +497,42 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between">
                     <Label>Texto de la Pregunta</Label>
-                    {q.type === 'fill_blank' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = q.question_text || '';
-                          const newText = current.includes('[___]') ? current : `${current.trim()} [___]`;
-                          updateQuestion(qIndex, 'question_text', newText);
-                        }}
-                        className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline"
-                      >
-                        + Insertar espacio [___]
-                      </button>
-                    )}
+                    {q.type === 'fill_blank' && (() => {
+                      const blankCount = (q.question_text || '').split('[___]').length - 1;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] font-mono text-amber-700 dark:text-amber-300">
+                            {blankCount} {blankCount === 1 ? 'espacio' : 'espacios'}
+                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = q.question_text || '';
+                              const newText = current.trim() ? `${current.trim()} [___]` : '[___]';
+                              const newBlanks = Math.max(1, newText.split('[___]').length - 1);
+                              const currentAnswers = q.answers || [];
+                              let updatedAnswers = [...currentAnswers];
+                              while (updatedAnswers.length < newBlanks) {
+                                updatedAnswers.push({
+                                  id: crypto.randomUUID(),
+                                  answer_text: '',
+                                  is_correct: true,
+                                  order_index: updatedAnswers.length,
+                                });
+                              }
+                              setQuestions((prev) =>
+                                prev.map((item, idx) =>
+                                  idx === qIndex ? { ...item, question_text: newText, answers: updatedAnswers } : item
+                                )
+                              );
+                            }}
+                            className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline"
+                          >
+                            + Insertar espacio [___]
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <Input value={q.question_text} onChange={e => updateQuestion(qIndex, 'question_text', e.target.value)} className="mt-1" />
                 </div>
@@ -609,84 +636,133 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                     <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Añadir Pareja
                   </Button>
                 </div>
-              ) : q.type === 'fill_blank' ? (
-                /* Specialized UI for Fill in the Blank */
-                <div className="bg-muted/30 rounded p-4 mb-4 space-y-4">
-                  <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-lg p-3.5 text-xs text-amber-950 dark:text-amber-200 space-y-1.5">
-                    <div className="font-semibold flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400 font-bold">
-                        <Clock className="w-4 h-4" />
-                        <span>Completar Espacios en Blanco • Calificación Manual</span>
-                      </div>
-                    </div>
-                    <p>
-                      Escribe en la pregunta la frase usando <code className="font-mono font-bold bg-amber-200/60 dark:bg-amber-800/60 px-1 py-0.5 rounded">[___]</code> donde irá la palabra que el estudiante debe rellenar (ej. <em>&quot;La capital de Colombia es [___]&quot;</em>).
-                    </p>
-                    <p className="text-muted-foreground text-[11px]">
-                      * Al igual que las preguntas abiertas, esta pregunta queda <strong>pendiente por calificar</strong> para que tú como profesor revises la respuesta del estudiante y le asignes la nota correspondiente.
-                    </p>
-                  </div>
+              ) : q.type === 'fill_blank' ? (() => {
+                const parts = (q.question_text || '').split('[___]');
+                const blankCount = Math.max(1, parts.length > 1 ? parts.length - 1 : 1);
+                const answersList = q.answers || [];
 
-                  {q.question_text && q.question_text.includes('[___]') && (
-                    <div className="p-3 bg-muted/50 rounded-lg border text-sm flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-primary flex-shrink-0" />
-                      <span className="text-muted-foreground text-xs font-semibold">Vista previa:</span>
-                      <span className="font-medium text-foreground">
-                        {q.question_text.split('[___]').map((part: string, idx: number, arr: any[]) => (
-                          <span key={idx}>
-                            {part}
-                            {idx < arr.length - 1 && (
-                              <span className="mx-1 px-3 py-0.5 border-b-2 border-primary bg-primary/10 rounded text-primary font-bold text-xs">
-                                [ espacio a rellenar ]
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </span>
-                    </div>
-                  )}
-
-                  <div>
-                    <Label className="block text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">
-                      Respuestas Sugeridas / Referencia (Guía para calificar):
-                    </Label>
-                    <div className="space-y-2">
-                      {q.answers.map((a: any, aIndex: number) => (
-                        <div key={a.id} className="group flex items-center gap-2 p-1.5 bg-background border rounded-lg">
-                          <Badge variant="outline" className={`text-xs ${aIndex === 0 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 font-semibold' : 'bg-muted/50'}`}>
-                            {aIndex === 0 ? 'Respuesta esperada' : `Sinónimo / Variante #${aIndex + 1}`}
-                          </Badge>
-                          <Input
-                            value={a.answer_text}
-                            placeholder={aIndex === 0 ? "Ej. Bogotá" : "Otra respuesta aceptable de referencia (opcional)..."}
-                            onChange={(e) => updateAnswer(qIndex, aIndex, 'answer_text', e.target.value)}
-                            className="flex-1 font-medium"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive flex-shrink-0 hover:bg-destructive/10"
-                            onClick={() => removeAnswer(qIndex, aIndex)}
-                            title="Eliminar respuesta"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                return (
+                  <div className="bg-muted/30 rounded p-4 mb-4 space-y-4">
+                    <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-lg p-3.5 text-xs text-amber-950 dark:text-amber-200 space-y-1.5">
+                      <div className="font-semibold flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400 font-bold">
+                          <Clock className="w-4 h-4" />
+                          <span>Completar Espacios en Blanco • Cada Espacio Independiente</span>
                         </div>
-                      ))}
+                      </div>
+                      <p>
+                        Escribe en la pregunta la frase usando <code className="font-mono font-bold bg-amber-200/60 dark:bg-amber-800/60 px-1 py-0.5 rounded">[___]</code> donde irá cada palabra o frase que el estudiante debe completar (ej. <em>&quot;La capital de Colombia es [___] y su moneda oficial es el [___]&quot;</em>).
+                      </p>
+                      <p className="text-muted-foreground text-[11px]">
+                        * Cada espacio se responderá de forma independiente en texto (como una pregunta abierta por espacio). La evaluación quedará en estado <strong>&quot;Por calificar&quot;</strong> para que revises y califiques las respuestas de cada espacio.
+                      </p>
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={() => addAnswer(qIndex)}
-                      className="mt-2 text-xs"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Añadir Respuesta de Referencia
-                    </Button>
+                    {q.question_text && q.question_text.includes('[___]') && (
+                      <div className="p-3 bg-muted/50 rounded-lg border text-sm flex items-start gap-2">
+                        <Eye className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground text-xs font-semibold block">Vista previa de la frase:</span>
+                          <div className="font-medium text-foreground leading-relaxed">
+                            {parts.map((part: string, idx: number) => (
+                              <span key={idx}>
+                                {part}
+                                {idx < parts.length - 1 && (
+                                  <span className="mx-1 px-2.5 py-0.5 border-b-2 border-primary bg-primary/10 rounded text-primary font-bold text-xs inline-block">
+                                    [ Espacio {idx + 1}{answersList[idx]?.answer_text ? `: "${answersList[idx].answer_text}"` : ''} ]
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="block text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                          Respuestas de referencia esperadas por cada espacio:
+                        </Label>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {blankCount} {blankCount === 1 ? 'espacio configurado' : 'espacios configurados'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {Array.from({ length: Math.max(blankCount, answersList.length) }).map((_, aIndex) => {
+                          const currentAns = answersList[aIndex] || { id: `blank-${aIndex}`, answer_text: '' };
+                          const isWithinBlanks = aIndex < blankCount;
+
+                          return (
+                            <div key={currentAns.id || aIndex} className="group flex items-center gap-2 p-2 bg-background border rounded-lg shadow-2xs">
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-mono font-bold shrink-0 ${
+                                  isWithinBlanks
+                                    ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                                    : 'bg-muted/50 text-muted-foreground'
+                                }`}
+                              >
+                                {isWithinBlanks ? `Espacio #${aIndex + 1}` : `Extra #${aIndex + 1}`}
+                              </Badge>
+                              <Input
+                                value={currentAns.answer_text}
+                                placeholder={
+                                  isWithinBlanks
+                                    ? `Ej. Respuesta esperada para el Espacio #${aIndex + 1}...`
+                                    : 'Respuesta alternativa / variante (opcional)...'
+                                }
+                                onChange={(e) => {
+                                  if (aIndex < answersList.length) {
+                                    updateAnswer(qIndex, aIndex, 'answer_text', e.target.value);
+                                  } else {
+                                    const newAnswers = [...answersList];
+                                    while (newAnswers.length <= aIndex) {
+                                      newAnswers.push({
+                                        id: crypto.randomUUID(),
+                                        answer_text: '',
+                                        is_correct: true,
+                                        order_index: newAnswers.length,
+                                      });
+                                    }
+                                    newAnswers[aIndex].answer_text = e.target.value;
+                                    setQuestions((prev) =>
+                                      prev.map((item, qi) => (qi === qIndex ? { ...item, answers: newAnswers } : item))
+                                    );
+                                  }
+                                }}
+                                className="flex-1 font-medium text-sm"
+                              />
+                              {answersList.length > blankCount && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive flex-shrink-0 hover:bg-destructive/10"
+                                  onClick={() => removeAnswer(qIndex, aIndex)}
+                                  title="Eliminar respuesta extra"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => addAnswer(qIndex)}
+                        className="mt-2.5 text-xs"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Añadir Respuesta de Referencia Extra
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : q.type === 'order_steps' ? (
+                );
+              })() : q.type === 'order_steps' ? (
                 /* Specialized UI for Order Steps */
                 <div className="bg-muted/30 rounded p-4 mb-4 space-y-3">
                   <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/40 rounded-lg p-3.5 text-xs text-sky-950 dark:text-sky-200 space-y-1.5">

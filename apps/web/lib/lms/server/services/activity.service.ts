@@ -76,8 +76,11 @@ export class ActivityService {
   async evaluateQuiz(activityId: string, studentId: string, submittedAnswers: Record<string, any>) {
     const fullActivity = await this.repository.getFullActivity(activityId);
     
+    const { getSupabaseServerAdminClient } = await import('@kit/supabase/server-admin-client');
+    const adminClient = getSupabaseServerAdminClient();
+
     // Get current attempt count
-    const { count } = await this.repository['client']
+    const { count } = await adminClient
       .from('activity_attempts')
       .select('*', { count: 'exact', head: true })
       .eq('activity_id', activityId)
@@ -198,8 +201,8 @@ export class ActivityService {
     const passed = scorePercentage >= (fullActivity.passing_score || 0);
     const status = hasManualGrading ? 'needs_grading' : (passed ? 'passed' : 'failed');
 
-    // Save attempt
-    const { error: insertError } = await this.repository['client'].from('activity_attempts').insert({
+    // Save attempt using adminClient to ensure reliable insert and avoid RLS/attempt conflicts
+    const { error: insertError } = await adminClient.from('activity_attempts').insert({
       activity_id: activityId,
       student_id: studentId,
       attempt_number: attemptNumber,

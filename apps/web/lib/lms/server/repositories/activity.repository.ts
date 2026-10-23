@@ -109,18 +109,21 @@ export class ActivityRepository {
       if (qError) throw qError;
 
       if (q.answers && q.answers.length > 0) {
-        const answersToInsert = q.answers.map((a: any, aIndex: number) => ({
-          question_id: questionData.id,
-          answer_text: a.answer_text,
-          is_correct: a.is_correct || false,
-          order_index: a.order_index ?? aIndex,
-        }));
+        const validAnswers = q.answers.filter((a: any) => a.answer_text && a.answer_text.trim() !== '');
+        if (validAnswers.length > 0) {
+          const answersToInsert = validAnswers.map((a: any, aIndex: number) => ({
+            question_id: questionData.id,
+            answer_text: a.answer_text,
+            is_correct: a.is_correct || false,
+            order_index: a.order_index ?? aIndex,
+          }));
 
-        const { error: aError } = await this.client
-          .from('activity_answers')
-          .insert(answersToInsert);
+          const { error: aError } = await this.client
+            .from('activity_answers')
+            .insert(answersToInsert);
 
-        if (aError) throw aError;
+          if (aError) throw aError;
+        }
       }
     }
   }

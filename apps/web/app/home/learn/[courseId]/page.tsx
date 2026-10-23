@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSupabaseServerClient } from '@kit/supabase/server-client';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 export default async function LearnCourseIndexPage({
   params,
@@ -7,7 +7,7 @@ export default async function LearnCourseIndexPage({
   params: Promise<{ courseId: string }>;
 }) {
   const { courseId } = await params;
-  const client = getSupabaseServerClient();
+  const client = getSupabaseServerAdminClient();
 
   const { data: modules } = await client
     .from('course_modules')

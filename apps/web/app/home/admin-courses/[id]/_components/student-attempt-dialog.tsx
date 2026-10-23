@@ -141,7 +141,11 @@ export function StudentAttemptDialog({
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex gap-2">
                       <span className="font-semibold text-muted-foreground">{i + 1}.</span>
-                      <p className="font-medium text-foreground">{q.question_text}</p>
+                      <p className="font-medium text-foreground">
+                        {q.type === 'fill_blank' && q.question_text?.includes('[___]')
+                          ? 'Pregunta de completar espacios:'
+                          : q.question_text}
+                      </p>
                     </div>
                     {q.type === 'open_text' && (
                       <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded whitespace-nowrap">
@@ -230,32 +234,107 @@ export function StudentAttemptDialog({
                           )}
                         </div>
                       </div>
-                    ) : q.type === 'fill_blank' ? (
-                      <div className="space-y-1.5 mt-2">
-                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                          Texto completado por el estudiante:
-                        </span>
-                        <div className="p-3 bg-background border rounded-md font-semibold text-foreground flex flex-wrap items-center justify-between text-sm gap-2">
-                          <span className="text-base font-bold text-primary">
-                            {studentAnswer ? (
-                              `"${studentAnswer}"`
-                            ) : (
-                              <span className="italic font-normal text-muted-foreground">
-                                No respondió.
+                    ) : q.type === 'fill_blank' ? (() => {
+                      const parts = (q.question_text || '').split('[___]');
+                      const blankCount = parts.length > 1 ? parts.length - 1 : 1;
+
+                      const getStudentBlank = (idx: number): string => {
+                        if (Array.isArray(studentAnswer)) {
+                          return studentAnswer[idx] ?? '';
+                        }
+                        if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+                          return studentAnswer[idx] ?? studentAnswer[String(idx)] ?? '';
+                        }
+                        if (typeof studentAnswer === 'string') {
+                          return idx === 0 ? studentAnswer : '';
+                        }
+                        return '';
+                      };
+
+                      return (
+                        <div className="space-y-3 mt-2">
+                          {/* Reconstructed sentence with student answers */}
+                          {parts.length > 1 && (
+                            <div className="p-3 bg-background border rounded-lg text-sm leading-relaxed font-medium text-foreground">
+                              <span className="text-xs font-semibold uppercase text-muted-foreground block mb-1 tracking-wider">
+                                Frase completada por el estudiante:
                               </span>
-                            )}
-                          </span>
-                          {q.activity_answers && q.activity_answers.length > 0 && (
-                            <span className="text-xs font-normal text-muted-foreground bg-muted/60 px-2.5 py-1 rounded">
-                              Respuestas de referencia:{' '}
-                              <strong className="text-foreground">
-                                {q.activity_answers.map((a: any) => a.answer_text).filter(Boolean).join(', ')}
-                              </strong>
-                            </span>
+                              {parts.map((part: string, idx: number) => {
+                                const filled = getStudentBlank(idx);
+                                return (
+                                  <span key={idx}>
+                                    <span>{part}</span>
+                                    {idx < parts.length - 1 && (
+                                      <span
+                                        className={`inline-flex items-center mx-1 px-2.5 py-0.5 rounded border font-bold text-xs ${
+                                          filled.trim()
+                                            ? 'border-primary/40 bg-primary/10 text-primary'
+                                            : 'border-destructive/40 bg-destructive/10 text-destructive italic'
+                                        }`}
+                                      >
+                                        [Espacio {idx + 1}: {filled.trim() ? `"${filled}"` : 'Sin responder'}]
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           )}
+
+                          {/* Space by space breakdown */}
+                          <div className="space-y-2">
+                            <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider block">
+                              Detalle de respuestas por espacio (evaluación abierta):
+                            </span>
+                            <div className="space-y-2">
+                              {Array.from({ length: blankCount }).map((_, idx) => {
+                                const filled = getStudentBlank(idx);
+                                const refAns = q.activity_answers?.[idx]?.answer_text || '';
+                                const allRefs = (q.activity_answers || [])
+                                  .map((a: any) => a.answer_text)
+                                  .filter(Boolean);
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="p-3 bg-background border rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 font-bold">
+                                        Espacio #{idx + 1}
+                                      </Badge>
+                                      <div>
+                                        <span className="text-muted-foreground block text-[11px]">Respuesta del estudiante:</span>
+                                        <span className="text-sm font-bold text-foreground">
+                                          {filled.trim() ? (
+                                            `"${filled}"`
+                                          ) : (
+                                            <span className="italic font-normal text-muted-foreground">No respondió.</span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="sm:text-right">
+                                      <span className="text-muted-foreground block text-[11px]">Referencia esperada:</span>
+                                      <span className="font-semibold text-foreground">
+                                        {refAns ? (
+                                          `"${refAns}"`
+                                        ) : allRefs.length > 0 ? (
+                                          allRefs.join(', ')
+                                        ) : (
+                                          <span className="italic text-muted-foreground">Criterio del profesor</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
+                      );
+                    })() : (
                       <div className="flex flex-col gap-1 mt-1">
                         <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                           Selección del estudiante:

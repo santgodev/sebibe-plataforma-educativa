@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { CheckCircle, FileText, PlayCircle, HelpCircle, Video } from 'lucide-react';
 
-import { getSupabaseServerClient } from '@kit/supabase/server-client';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import {
   Accordion,
   AccordionContent,
@@ -18,12 +18,12 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
-  const client = getSupabaseServerClient();
-  const { data } = await client
+  const adminClient = getSupabaseServerAdminClient();
+  const { data } = await adminClient
     .from('courses')
     .select('title, short_description')
-    .eq('slug', decodedSlug)
-    .single();
+    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
+    .maybeSingle();
   return {
     title: data?.title || 'Materia',
     description: data?.short_description || 'Detalles de la materia',
@@ -37,9 +37,9 @@ export default async function CourseLandingPage({
 }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
-  const client = getSupabaseServerClient();
+  const adminClient = getSupabaseServerAdminClient();
 
-  const { data: course, error } = await client
+  const { data: course, error } = await adminClient
     .from('courses')
     .select(
       `
@@ -50,8 +50,8 @@ export default async function CourseLandingPage({
       )
     `,
     )
-    .eq('slug', decodedSlug)
-    .single();
+    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
+    .maybeSingle();
 
   if (error || !course) {
     return notFound();
@@ -73,7 +73,7 @@ export default async function CourseLandingPage({
   const { requireUserInServerComponent } = await import('~/lib/server/require-user-in-server-component');
   const user = await requireUserInServerComponent();
   
-  const { data: progressData } = await client
+  const { data: progressData } = await adminClient
     .from('course_progress')
     .select('percentage_completed')
     .eq('student_id', user.id)
@@ -81,7 +81,7 @@ export default async function CourseLandingPage({
     .maybeSingle();
   const progressPercentage = progressData?.percentage_completed || 0;
 
-  const { data: completedLessonsData } = await client
+  const { data: completedLessonsData } = await adminClient
     .from('lesson_progress')
     .select('lesson_id')
     .eq('student_id', user.id)

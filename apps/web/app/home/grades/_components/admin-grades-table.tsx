@@ -2,7 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Award, BookOpen, ChevronRight, Search, X, Filter, ArrowUpDown, User, GraduationCap } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronRight,
+  Search,
+  X,
+  Filter,
+  ArrowUpDown,
+  User,
+  GraduationCap,
+  FileText,
+} from 'lucide-react';
 import { Input } from '@kit/ui/input';
 import { Button } from '@kit/ui/button';
 import { Badge } from '@kit/ui/badge';
@@ -13,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@kit/ui/select';
+import { cn } from '@kit/ui/utils';
 
 export interface StudentGradeItem {
   id: string;
@@ -21,7 +32,7 @@ export interface StudentGradeItem {
   semester?: string | null;
   modality?: string | null;
   coursesCount: number;
-  evaluationsCount: number;
+  evaluationsCount?: number;
 }
 
 interface AdminGradesTableProps {
@@ -31,8 +42,8 @@ interface AdminGradesTableProps {
 export function AdminGradesTable({ students }: AdminGradesTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'with_courses' | 'without_courses' | 'with_evals' | 'without_evals'>('all');
-  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'courses_desc' | 'courses_asc' | 'evals_desc' | 'evals_asc'>('name_asc');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'with_courses' | 'without_courses'>('all');
+  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'courses_desc' | 'courses_asc'>('name_asc');
 
   // Available semesters
   const availableSemesters = useMemo(() => {
@@ -63,8 +74,6 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
         // Status filter
         if (statusFilter === 'with_courses' && student.coursesCount === 0) return false;
         if (statusFilter === 'without_courses' && student.coursesCount > 0) return false;
-        if (statusFilter === 'with_evals' && student.evaluationsCount === 0) return false;
-        if (statusFilter === 'without_evals' && student.evaluationsCount > 0) return false;
 
         return true;
       })
@@ -81,17 +90,12 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
         if (sortBy === 'courses_asc') {
           return a.coursesCount - b.coursesCount;
         }
-        if (sortBy === 'evals_desc') {
-          return b.evaluationsCount - a.evaluationsCount;
-        }
-        if (sortBy === 'evals_asc') {
-          return a.evaluationsCount - b.evaluationsCount;
-        }
         return 0;
       });
   }, [students, searchQuery, semesterFilter, statusFilter, sortBy]);
 
-  const hasActiveFilters = searchQuery !== '' || semesterFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'name_asc';
+  const hasActiveFilters =
+    searchQuery !== '' || semesterFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'name_asc';
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -168,8 +172,6 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
                 <SelectItem value="all">Todas las situaciones</SelectItem>
                 <SelectItem value="with_courses">Con materias</SelectItem>
                 <SelectItem value="without_courses">Sin materias</SelectItem>
-                <SelectItem value="with_evals">Con evaluaciones</SelectItem>
-                <SelectItem value="without_evals">Sin evaluaciones</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -189,8 +191,6 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
                 <SelectItem value="name_desc">Nombre (Z - A)</SelectItem>
                 <SelectItem value="courses_desc">Más materias</SelectItem>
                 <SelectItem value="courses_asc">Menos materias</SelectItem>
-                <SelectItem value="evals_desc">Más evaluaciones</SelectItem>
-                <SelectItem value="evals_asc">Menos evaluaciones</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -209,11 +209,11 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
         </div>
       </div>
 
-
       {/* Results Count & Badges */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>
-          Mostrando <strong className="text-foreground">{filteredStudents.length}</strong> de <strong className="text-foreground">{students.length}</strong> estudiantes
+          Mostrando <strong className="text-foreground">{filteredStudents.length}</strong> de{' '}
+          <strong className="text-foreground">{students.length}</strong> estudiantes
         </span>
         {hasActiveFilters && (
           <span className="text-primary font-medium">Filtros aplicados</span>
@@ -240,39 +240,51 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 text-muted-foreground">
+              <thead className="bg-muted/40 text-muted-foreground border-b text-xs uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Estudiante</th>
                   <th className="px-6 py-4 font-semibold text-center">Materias Inscritas</th>
-                  <th className="px-6 py-4 font-semibold text-center">Evaluaciones Realizadas</th>
-                  <th className="px-6 py-4 font-semibold text-right">Acción</th>
+                  <th className="px-6 py-4 font-semibold text-right">Reporte</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {filteredStudents.map((student) => {
                   return (
-                    <tr key={student.id} className="hover:bg-muted/30 transition-colors group">
+                    <tr
+                      key={student.id}
+                      className="hover:bg-muted/30 transition-colors group"
+                    >
+                      {/* Columna Estudiante */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase flex-shrink-0">
+                        <Link
+                          href={`/home/admin-users/${student.id}`}
+                          className="flex items-center gap-3 group/link"
+                        >
+                          <div className="h-10 w-10 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-xs uppercase shrink-0 transition-transform group-hover/link:scale-105">
                             {student.name ? (
-                              student.name.slice(0, 2)
+                              student.name.slice(0, 2).toUpperCase()
                             ) : (
                               <User className="h-4 w-4" />
                             )}
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-foreground text-base">
+                              <span className="font-semibold text-foreground text-sm group-hover/link:text-primary transition-colors">
                                 {student.name || 'Sin nombre'}
                               </span>
                               {student.semester && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium bg-background">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 font-medium bg-background"
+                                >
                                   {student.semester}
                                 </Badge>
                               )}
                               {student.modality && (
-                                <Badge variant="secondary" className="text-[9px] uppercase tracking-wider px-1 py-0">
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[9px] uppercase tracking-wider px-1.5 py-0"
+                                >
                                   {student.modality}
                                 </Badge>
                               )}
@@ -281,35 +293,36 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
                               {student.email || 'Sin correo registrado'}
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       </td>
+
+                      {/* Columna Materias Inscritas */}
                       <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                          student.coursesCount > 0
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          <BookOpen className="h-3.5 w-3.5" />
-                          {student.coursesCount} {student.coursesCount === 1 ? 'Materia' : 'Materias'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                          student.evaluationsCount > 0
-                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          <Award className="h-3.5 w-3.5" />
-                          {student.evaluationsCount} {student.evaluationsCount === 1 ? 'Evaluación' : 'Evaluaciones'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Link 
-                          href={`/home/admin-users/${student.id}`}
-                          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 group-hover:border-primary group-hover:text-primary"
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors',
+                            student.coursesCount > 0
+                              ? 'bg-primary/10 text-primary border border-primary/20'
+                              : 'bg-muted text-muted-foreground'
+                          )}
                         >
-                          Ver Reporte
-                          <ChevronRight className="ml-2 h-4 w-4" />
+                          <BookOpen className="h-3.5 w-3.5" />
+                          <span>
+                            {student.coursesCount}{' '}
+                            {student.coursesCount === 1 ? 'Materia' : 'Materias'}
+                          </span>
+                        </span>
+                      </td>
+
+                      {/* Botón Ver Reporte integrado orgánicamente */}
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={`/home/admin-users/${student.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/20 transition-all shadow-2xs group-hover:border-primary/40 whitespace-nowrap"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>Ver Reporte</span>
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </Link>
                       </td>
                     </tr>

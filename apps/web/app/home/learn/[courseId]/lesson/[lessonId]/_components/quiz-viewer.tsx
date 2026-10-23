@@ -183,59 +183,143 @@ function FillBlankViewer({
   result,
 }: {
   question: any;
-  studentAnswer: string;
-  onChange: (value: string) => void;
+  studentAnswer: any;
+  onChange: (value: any) => void;
   result: any;
 }) {
-  return (
-    <div className="mt-4 space-y-3">
-      {question.question_text?.includes('[___]') ? (
-        <div className="p-4 rounded-xl border bg-muted/30 text-base leading-relaxed font-medium text-foreground">
-          {question.question_text.split('[___]').map((part: string, idx: number, arr: any[]) => (
-            <span key={idx}>
-              {part}
-              {idx < arr.length - 1 && (
-                <span
-                  className={`inline-block mx-1.5 px-3 py-0.5 rounded border-b-2 font-bold text-sm tracking-wide ${
-                    result
-                      ? 'border-amber-500 bg-amber-100/60 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
-                      : studentAnswer
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-dashed border-primary/50 text-muted-foreground bg-muted/60'
-                  }`}
-                >
-                  {studentAnswer || '________'}
-                </span>
-              )}
-            </span>
-          ))}
-        </div>
-      ) : null}
+  const parts = (question.question_text || '').split('[___]');
+  const hasBlanks = parts.length > 1;
+  const blankCount = hasBlanks ? parts.length - 1 : 1;
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-          <PenLine className="w-3.5 h-3.5 text-primary" />
-          <span>Escribe la palabra o frase que completa el espacio:</span>
-        </label>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <Input
-            placeholder="Escribe tu respuesta aquí..."
-            value={studentAnswer || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={!!result}
-            className={`max-w-md text-base py-5 font-medium transition-all ${
-              result
-                ? 'border-amber-500/50 bg-amber-50/20 text-foreground'
-                : 'bg-background'
-            }`}
-          />
-          {result && (
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-3 py-1.5 rounded-lg">
-                <Clock className="w-4 h-4" /> Pendiente de calificación
+  const getBlankValue = (index: number): string => {
+    if (Array.isArray(studentAnswer)) {
+      return studentAnswer[index] ?? '';
+    }
+    if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+      return studentAnswer[index] ?? studentAnswer[String(index)] ?? '';
+    }
+    if (typeof studentAnswer === 'string') {
+      return index === 0 ? studentAnswer : '';
+    }
+    return '';
+  };
+
+  const handleBlankChange = (index: number, val: string) => {
+    let currentList: string[] = [];
+    if (Array.isArray(studentAnswer)) {
+      currentList = [...studentAnswer];
+    } else if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+      for (let k = 0; k < blankCount; k++) {
+        currentList[k] = studentAnswer[k] ?? studentAnswer[String(k)] ?? '';
+      }
+    } else if (typeof studentAnswer === 'string') {
+      currentList = [studentAnswer];
+    }
+    while (currentList.length < blankCount) {
+      currentList.push('');
+    }
+    currentList[index] = val;
+    onChange(currentList);
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      {hasBlanks && (
+        <div className="p-4 sm:p-5 rounded-xl border bg-muted/20 text-base sm:text-lg leading-relaxed font-medium text-foreground shadow-2xs">
+          <span className="text-xs font-semibold uppercase text-muted-foreground block mb-2 tracking-wider">
+            Frase a completar (vista en vivo):
+          </span>
+          {parts.map((part: string, idx: number) => {
+            const val = getBlankValue(idx);
+            const isFilled = val.trim().length > 0;
+            return (
+              <span key={idx}>
+                <span>{part}</span>
+                {idx < parts.length - 1 && (
+                  <span
+                    className={`inline-flex items-center gap-1.5 mx-1.5 px-2.5 py-0.5 rounded-lg border text-sm sm:text-base font-bold transition-all ${
+                      result
+                        ? 'border-amber-500/60 bg-amber-100/50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                        : isFilled
+                        ? 'border-primary bg-primary/10 text-primary shadow-xs'
+                        : 'border-dashed border-primary/50 text-muted-foreground bg-background'
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider px-1 py-0.2 rounded bg-muted/60 text-muted-foreground">
+                      Espacio {idx + 1}
+                    </span>
+                    <span className="underline decoration-primary/40 underline-offset-4">
+                      {isFilled ? val : '________'}
+                    </span>
+                  </span>
+                )}
               </span>
-            </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="space-y-3 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-0.5">
+          <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <PenLine className="w-3.5 h-3.5 text-primary" />
+            <span>
+              {blankCount === 1
+                ? 'Escribe tu respuesta para completar el espacio:'
+                : 'Escribe tu respuesta para cada espacio de forma independiente:'}
+            </span>
+          </label>
+          {result && (
+            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-2.5 py-1 rounded-md self-start sm:self-auto">
+              <Clock className="w-3.5 h-3.5" /> Pendiente de calificación
+            </span>
           )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          {Array.from({ length: blankCount }).map((_, idx) => {
+            const val = getBlankValue(idx);
+            const isFilled = val.trim().length > 0;
+            return (
+              <div
+                key={idx}
+                className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
+                  result
+                    ? 'border-amber-500/40 bg-amber-50/10'
+                    : isFilled
+                    ? 'border-primary/40 bg-primary/[0.02] shadow-xs'
+                    : 'border-muted bg-background hover:border-primary/30'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5 font-bold">
+                      Espacio #{idx + 1}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Respuesta abierta para el espacio #{idx + 1}
+                    </span>
+                  </div>
+                  {isFilled && !result && (
+                    <span className="text-[11px] font-semibold text-primary flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Completado
+                    </span>
+                  )}
+                </div>
+                <Input
+                  placeholder={`Escribe aquí la palabra o frase para el Espacio #${idx + 1}...`}
+                  value={val}
+                  onChange={(e) => handleBlankChange(idx, e.target.value)}
+                  disabled={!!result}
+                  className={`w-full text-sm sm:text-base py-5 font-medium transition-all ${
+                    result
+                      ? 'border-amber-500/40 bg-amber-50/20 text-foreground'
+                      : 'bg-background'
+                  }`}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -678,7 +762,9 @@ export function QuizViewer({
                 <span className="text-muted-foreground font-bold text-sm sm:text-base">{idx + 1}.</span>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-foreground text-base sm:text-lg leading-snug sm:leading-relaxed font-medium">
-                    {q.question_text}
+                    {q.type === 'fill_blank' && q.question_text?.includes('[___]')
+                      ? 'Completa los espacios en blanco de la siguiente frase:'
+                      : q.question_text}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-muted-foreground">Valor: {q.points || 1} puntos</p>
@@ -751,7 +837,7 @@ export function QuizViewer({
                 {q.type === 'fill_blank' && (
                   <FillBlankViewer
                     question={q}
-                    studentAnswer={answers[q.id] || ''}
+                    studentAnswer={answers[q.id] || []}
                     onChange={(val) => handleSelect(q.id, val)}
                     result={result}
                   />
