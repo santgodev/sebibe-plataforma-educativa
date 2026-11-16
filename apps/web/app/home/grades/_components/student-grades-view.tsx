@@ -2,6 +2,7 @@ import { Award, BookOpen, Clock, CheckCircle2 } from 'lucide-react';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { StudentCoursesSection } from '~/home/admin-users/[id]/_components/student-courses-section';
 import { ViewSubmissionDialog } from '~/home/admin-users/[id]/_components/view-submission-dialog';
+import { calculateBestScoresAverage } from '~/home/admin-users/_lib/student-utils';
 
 export async function StudentGradesView({ userId }: { userId: string }) {
   const adminClient = getSupabaseServerAdminClient();
@@ -97,12 +98,8 @@ export async function StudentGradesView({ userId }: { userId: string }) {
         return cId === course.id;
       });
 
-      // Grade stats
-      const gradedAttempts = courseAttempts.filter((a) => a.score !== null && a.score !== undefined);
-      const averageScore =
-        gradedAttempts.length > 0
-          ? gradedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / gradedAttempts.length
-          : null;
+      // Grade stats (taking highest score per activity)
+      const averageScore = calculateBestScoresAverage(courseAttempts);
 
       const hasNeedsGrading = courseAttempts.some((a) => a.status === 'needs_grading');
 
@@ -129,12 +126,8 @@ export async function StudentGradesView({ userId }: { userId: string }) {
     return !cId;
   });
 
-  // Global KPIs for student
-  const allGradedAttempts = attempts.filter((a) => a.score !== null && a.score !== undefined);
-  const overallAverageScore =
-    allGradedAttempts.length > 0
-      ? allGradedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / allGradedAttempts.length
-      : null;
+  // Global KPIs for student (taking highest score per activity)
+  const overallAverageScore = calculateBestScoresAverage(attempts);
   const totalNeedsGrading = attempts.filter((a) => a.status === 'needs_grading').length;
 
   return (

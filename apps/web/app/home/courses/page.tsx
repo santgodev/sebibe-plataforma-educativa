@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { 
   BookOpen, 
   CheckCircle2, 
@@ -21,6 +22,21 @@ export const metadata = {
 export default async function CoursesCatalogPage() {
   const user = await requireUserInServerComponent();
   const adminClient = getSupabaseServerAdminClient();
+
+  // Verificar rol: profesores y administradores van a su vista de gestión/materias a cargo
+  const { data: roleData } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const role = roleData?.role;
+  const isAdmin = role === 'administrador' || role === 'admin';
+  const isProfesor = role === 'profesor' || role === 'instructor';
+
+  if (isAdmin || isProfesor) {
+    redirect('/home/admin-courses');
+  }
 
   // 1. Obtener todas las asignaturas asignadas / inscritas del estudiante
   const { data: enrollments } = await adminClient

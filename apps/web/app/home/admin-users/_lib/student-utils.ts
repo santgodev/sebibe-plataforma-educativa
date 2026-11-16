@@ -185,3 +185,40 @@ export function calculateAcademicYear(
     return { yearName: 'TERCER AÑO', semesterCount: semestersElapsed };
   }
 }
+
+/**
+ * Calcula el promedio de calificaciones tomando únicamente la nota más alta
+ * obtenida por cada actividad o cuestionario distinto, ignorando intentos sin calificar.
+ */
+export function calculateBestScoresAverage(attempts: any[]): number | null {
+  if (!attempts || attempts.length === 0) return null;
+
+  const bestScoreByActivity = new Map<string, number>();
+
+  for (const attempt of attempts) {
+    if (
+      attempt.score === null ||
+      attempt.score === undefined ||
+      attempt.status === 'needs_grading'
+    ) {
+      continue;
+    }
+
+    const actId =
+      (attempt.activities as any)?.id ||
+      attempt.activity_id ||
+      attempt.id;
+
+    const score = Number(attempt.score) || 0;
+    const currentBest = bestScoreByActivity.get(actId);
+
+    if (currentBest === undefined || score > currentBest) {
+      bestScoreByActivity.set(actId, score);
+    }
+  }
+
+  const bestScores = Array.from(bestScoreByActivity.values());
+  if (bestScores.length === 0) return null;
+
+  return bestScores.reduce((acc, s) => acc + s, 0) / bestScores.length;
+}

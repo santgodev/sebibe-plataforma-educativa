@@ -26,7 +26,7 @@ export default async function AdminCoursesPage() {
 
   const role = roleData?.role;
   const isAdmin = role === 'administrador' || role === 'admin';
-  const isProfesor = role === 'profesor';
+  const isProfesor = role === 'profesor' || role === 'instructor';
 
   if (!isAdmin && !isProfesor) {
     redirect('/home');

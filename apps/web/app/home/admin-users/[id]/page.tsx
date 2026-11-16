@@ -27,7 +27,7 @@ import { Badge } from '@kit/ui/badge';
 import { ViewSubmissionDialog } from './_components/view-submission-dialog';
 import { StudentCoursesSection } from './_components/student-courses-section';
 import { EditUserDialog } from '../_components/edit-user-dialog';
-import { calculateSemester } from '../_lib/student-utils';
+import { calculateSemester, calculateBestScoresAverage } from '../_lib/student-utils';
 
 export const metadata = {
   title: 'Progreso y Calificaciones del Estudiante',
@@ -195,12 +195,8 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
         return cId === course.id;
       });
 
-      // Calculate grade statistics for this course
-      const gradedAttempts = courseAttempts.filter((a) => a.score !== null && a.score !== undefined);
-      const averageScore =
-        gradedAttempts.length > 0
-          ? gradedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / gradedAttempts.length
-          : null;
+      // Calculate grade statistics for this course (taking highest score per activity)
+      const averageScore = calculateBestScoresAverage(courseAttempts);
 
       const hasNeedsGrading = courseAttempts.some((a) => a.status === 'needs_grading');
 
@@ -227,12 +223,8 @@ export default async function StudentProgressPage(props: { params: Promise<{ id:
     return !cId;
   });
 
-  // Global KPIs across all courses
-  const allGradedAttempts = attempts.filter((a) => a.score !== null && a.score !== undefined);
-  const overallAverageScore =
-    allGradedAttempts.length > 0
-      ? allGradedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / allGradedAttempts.length
-      : null;
+  // Global KPIs across all courses (taking highest score per activity)
+  const overallAverageScore = calculateBestScoresAverage(attempts);
   const totalNeedsGrading = attempts.filter((a) => a.status === 'needs_grading').length;
 
   return (
