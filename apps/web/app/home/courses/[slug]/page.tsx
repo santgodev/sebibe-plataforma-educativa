@@ -18,12 +18,14 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
   const adminClient = getSupabaseServerAdminClient();
-  const { data } = await adminClient
-    .from('courses')
-    .select('title, short_description')
-    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
-    .maybeSingle();
+  const baseQuery = adminClient.from('courses').select('title, short_description');
+  const { data } = await (isUuid
+    ? baseQuery.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
+    : baseQuery.eq('slug', decodedSlug)
+  ).maybeSingle();
+
   return {
     title: data?.title || 'Materia',
     description: data?.short_description || 'Detalles de la materia',
@@ -37,9 +39,10 @@ export default async function CourseLandingPage({
 }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
   const adminClient = getSupabaseServerAdminClient();
 
-  const { data: course, error } = await adminClient
+  const baseQuery = adminClient
     .from('courses')
     .select(
       `
@@ -49,9 +52,12 @@ export default async function CourseLandingPage({
         lessons ( id, title, order_index, lesson_blocks ( type, order_index ) )
       )
     `,
-    )
-    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
-    .maybeSingle();
+    );
+
+  const { data: course, error } = await (isUuid
+    ? baseQuery.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
+    : baseQuery.eq('slug', decodedSlug)
+  ).maybeSingle();
 
   if (error || !course) {
     return notFound();
