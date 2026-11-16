@@ -226,13 +226,21 @@ export default async function CoursesCatalogPage() {
                       className="group bg-card rounded-2xl border shadow-xs hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden"
                     >
                       {/* Portada */}
-                      <div className="relative aspect-video w-full bg-muted/60 overflow-hidden">
+                      <div className="relative aspect-video w-full bg-slate-950/80 overflow-hidden flex items-center justify-center">
                         {course.thumbnail_url ? (
-                          <img
-                            src={course.thumbnail_url}
-                            alt={course.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
+                          <>
+                            <img
+                              src={course.thumbnail_url}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute inset-0 h-full w-full object-cover blur-md opacity-30 scale-110 pointer-events-none"
+                            />
+                            <img
+                              src={course.thumbnail_url}
+                              alt={course.title}
+                              className="relative h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                            />
+                          </>
                         ) : (
                           <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-muted">
                             <GraduationCap className="h-12 w-12 text-primary/40" />
@@ -364,13 +372,21 @@ export default async function CoursesCatalogPage() {
                       className="group bg-card rounded-2xl border border-emerald-500/20 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden"
                     >
                       {/* Portada con Badge de Completada */}
-                      <div className="relative aspect-video w-full bg-muted/60 overflow-hidden">
+                      <div className="relative aspect-video w-full bg-slate-950/80 overflow-hidden flex items-center justify-center">
                         {course.thumbnail_url ? (
-                          <img
-                            src={course.thumbnail_url}
-                            alt={course.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
+                          <>
+                            <img
+                              src={course.thumbnail_url}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute inset-0 h-full w-full object-cover blur-md opacity-30 scale-110 pointer-events-none"
+                            />
+                            <img
+                              src={course.thumbnail_url}
+                              alt={course.title}
+                              className="relative h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                            />
+                          </>
                         ) : (
                           <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-muted">
                             <CheckCircle2 className="h-12 w-12 text-emerald-600/40" />

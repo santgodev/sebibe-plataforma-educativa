@@ -125,13 +125,21 @@ export default async function AdminCoursesPage() {
                   key={course.id}
                   className="group bg-background relative flex flex-col overflow-hidden rounded-xl border shadow-sm transition-all hover:shadow-md"
                 >
-                  <div className="bg-muted/50 relative aspect-video w-full overflow-hidden">
+                  <div className="bg-slate-950/80 relative aspect-video w-full overflow-hidden flex items-center justify-center">
                     {course.thumbnail_url ? (
-                      <img
-                        src={course.thumbnail_url}
-                        alt={course.title}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
+                      <>
+                        <img
+                          src={course.thumbnail_url}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full object-cover blur-md opacity-30 scale-110 pointer-events-none"
+                        />
+                        <img
+                          src={course.thumbnail_url}
+                          alt={course.title}
+                          className="relative h-full w-full object-contain transition-transform group-hover:scale-105"
+                        />
+                      </>
                     ) : (
                       <div className="bg-primary/5 text-primary/40 flex h-full w-full items-center justify-center">
                         <span className="text-4xl">📚</span>

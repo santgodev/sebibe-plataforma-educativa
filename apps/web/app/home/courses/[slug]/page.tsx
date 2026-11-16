@@ -127,16 +127,16 @@ export default async function CourseLandingPage({
             )}
           </div>
 
-          <div className="hidden justify-center lg:flex">
-            <div className="aspect-video w-full max-w-md overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
+          <div className="flex justify-center lg:justify-end w-full">
+            <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-2xl p-2 sm:p-3 flex items-center justify-center">
               {course.thumbnail_url ? (
                 <img
                   src={course.thumbnail_url}
                   alt={course.title}
-                  className="h-full w-full object-cover"
+                  className="w-full h-auto max-h-[380px] sm:max-h-[440px] object-contain rounded-xl shadow-md"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                <div className="flex aspect-video w-full items-center justify-center bg-slate-900 rounded-xl">
                   <span className="text-6xl">📖</span>
                 </div>
               )}
