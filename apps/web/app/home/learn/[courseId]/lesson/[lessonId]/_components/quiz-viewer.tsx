@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowRight,
-  Maximize2,
   ShieldAlert,
   ArrowUpDown,
   CheckCircle2,
@@ -561,20 +560,6 @@ export function QuizViewer({
     });
   }, [activityId, currentUserId]);
 
-  if (!activity) {
-    return <div className="text-muted-foreground p-8 text-center animate-pulse">Cargando cuestionario...</div>;
-  }
-
-  const questions = activity.activity_questions || [];
-
-  if (questions.length === 0) {
-    return (
-      <div className="text-muted-foreground italic p-8 text-center border rounded-xl">
-        Este cuestionario aún no tiene preguntas.
-      </div>
-    );
-  }
-
   const handleSelect = (questionId: string, value: any, isMultiple = false) => {
     if (result) return;
     
@@ -625,6 +610,7 @@ export function QuizViewer({
         );
         router.refresh();
       } catch (e: any) {
+        isSubmittingRef.current = false;
         toast.error(e.message || 'Error al enviar el cuestionario');
       }
     });
@@ -738,6 +724,20 @@ export function QuizViewer({
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [isStarted, result, isDisqualified, handleSecurityViolation]);
+
+  if (!activity) {
+    return <div className="text-muted-foreground p-8 text-center animate-pulse">Cargando cuestionario...</div>;
+  }
+
+  const questions = activity.activity_questions || [];
+
+  if (questions.length === 0) {
+    return (
+      <div className="text-muted-foreground italic p-8 text-center border rounded-xl">
+        Este cuestionario aún no tiene preguntas.
+      </div>
+    );
+  }
 
   if (!isStarted) {
     return (
