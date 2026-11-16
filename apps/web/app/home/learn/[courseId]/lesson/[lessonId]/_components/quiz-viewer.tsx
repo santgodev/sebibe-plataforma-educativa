@@ -494,6 +494,7 @@ export function QuizViewer({
   const [isStarted, setIsStarted] = useState(false);
   const [pastAttempts, setPastAttempts] = useState<any[]>([]);
   const [studentSeed, setStudentSeed] = useState<string>('');
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState<number | null>(null);
 
   // Control de seguridad e integridad (detección de ventanas y pantalla completa)
   const [warningStrikes, setWarningStrikes] = useState<number>(0);
@@ -675,7 +676,7 @@ export function QuizViewer({
     }
   };
 
-  // Iniciar cuestionario solicitando pantalla completa
+  // Iniciar cuestionario solicitando pantalla completa y configurando temporizador
   const startQuiz = async () => {
     try {
       if (typeof document !== 'undefined' && document.documentElement?.requestFullscreen) {
@@ -688,8 +689,66 @@ export function QuizViewer({
     setIsSecurityModalOpen(false);
     setIsDisqualified(false);
     isSubmittingRef.current = false;
+    if (activity?.time_limit_minutes && activity.time_limit_minutes > 0) {
+      setTimeLeftSeconds(activity.time_limit_minutes * 60);
+    } else {
+      setTimeLeftSeconds(null);
+    }
     setIsStarted(true);
   };
+
+  // Temporizador en tiempo real (cuenta regresiva por segundo)
+  const hasActiveTimer = isStarted && !result && !isDisqualified && timeLeftSeconds !== null && timeLeftSeconds > 0;
+
+  useEffect(() => {
+    if (!hasActiveTimer) return;
+
+    const interval = setInterval(() => {
+      setTimeLeftSeconds((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [hasActiveTimer]);
+
+  // Envío automático cuando el tiempo llega a 00:00
+  useEffect(() => {
+    if (!isStarted || result || isDisqualified || timeLeftSeconds !== 0) return;
+    if (isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
+    if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    startTransition(async () => {
+      try {
+        const evalResult = await submitActivityAttemptAction({
+          activity_id: activityId,
+          answers: answersRef.current || {},
+        });
+        setResult(evalResult);
+
+        if (lessonId) {
+          try {
+            await markLessonCompleteAction({
+              course_id: courseId,
+              lesson_id: lessonId,
+            });
+          } catch (progressErr) {
+            console.error('Error auto-completing lesson:', progressErr);
+          }
+        }
+
+        toast.warning('¡Se acabó el tiempo! Tu cuestionario se ha enviado automáticamente.', {
+          duration: 6000,
+        });
+        router.refresh();
+      } catch (e: any) {
+        isSubmittingRef.current = false;
+        toast.error(e.message || 'Error al enviar el cuestionario automáticamente');
+      }
+    });
+  }, [isStarted, result, isDisqualified, timeLeftSeconds, activityId, courseId, lessonId, router]);
 
   // Escuchar eventos de cambio de ventana, visibilidad, pantalla completa y bloqueo de copiado
   useEffect(() => {
@@ -1005,8 +1064,19 @@ export function QuizViewer({
           </div>
         </div>
         {activity.time_limit_minutes && !result && (
-          <div className="self-start md:self-auto bg-muted/30 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-mono text-base sm:text-lg font-semibold border">
-            {activity.time_limit_minutes}:00
+          <div
+            className={`self-start md:self-auto px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-mono text-base sm:text-lg font-bold border flex items-center gap-2 transition-colors ${
+              timeLeftSeconds !== null && timeLeftSeconds <= 60
+                ? 'bg-destructive/10 text-destructive border-destructive/50 animate-pulse'
+                : 'bg-muted/30 text-foreground'
+            }`}
+          >
+            <Clock className="h-4 w-4 shrink-0" />
+            <span>
+              {timeLeftSeconds !== null
+                ? `${Math.floor(timeLeftSeconds / 60)}:${(timeLeftSeconds % 60).toString().padStart(2, '0')}`
+                : `${activity.time_limit_minutes}:00`}
+            </span>
           </div>
         )}
       </div>
