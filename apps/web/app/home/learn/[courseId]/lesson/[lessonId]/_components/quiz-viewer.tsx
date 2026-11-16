@@ -153,7 +153,7 @@ function MatchingViewer({
                   disabled={!!result}
                 >
                   <SelectTrigger
-                    className={`w-full text-sm font-medium ${
+                    className={`w-full h-auto min-h-9 py-2 text-left whitespace-normal [&>span]:line-clamp-none [&>span]:whitespace-normal text-sm font-medium ${
                       result
                         ? isCorrect
                           ? 'border-emerald-500 text-emerald-800 dark:text-emerald-300'
@@ -163,9 +163,9 @@ function MatchingViewer({
                   >
                     <SelectValue placeholder="Elegir pareja correspondiente..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
                     {availableDefinitions.map((def: string, dIdx: number) => (
-                      <SelectItem key={dIdx} value={def}>
+                      <SelectItem key={dIdx} value={def} className="whitespace-normal break-words">
                         {def}
                       </SelectItem>
                     ))}
@@ -399,7 +399,7 @@ function OrderStepsViewer({
         </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {currentOrder.map((stepId: string, idx: number) => {
           const stepAnswer = allAnswers.find((a: any) => a.id === stepId);
           const isCorrectPosition = result && correctOrderIds[idx] === stepId;
@@ -407,7 +407,7 @@ function OrderStepsViewer({
           return (
             <div
               key={stepId || idx}
-              className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+              className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                 result
                   ? isCorrectPosition
                     ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
@@ -415,25 +415,26 @@ function OrderStepsViewer({
                   : 'bg-background hover:border-primary/40 shadow-xs'
               }`}
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* Enunciado completo y Paso a un lado */}
+              <div className="flex items-start sm:items-center justify-between gap-3 flex-1 min-w-0">
+                <span className="text-foreground text-sm sm:text-base font-medium leading-snug break-words flex-1">
+                  {stepAnswer?.answer_text || 'Paso'}
+                </span>
                 <Badge
                   variant={result ? (isCorrectPosition ? 'default' : 'destructive') : 'secondary'}
-                  className="font-mono text-xs px-2.5 py-1 shrink-0"
+                  className="font-mono text-xs px-2.5 py-1 shrink-0 font-bold"
                 >
                   Paso {idx + 1}
                 </Badge>
-                <span className="text-foreground text-sm font-medium leading-relaxed truncate">
-                  {stepAnswer?.answer_text || 'Paso'}
-                </span>
               </div>
 
               {!result && (
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-2 pt-2 border-t sm:border-t-0 sm:pt-0 shrink-0 w-full sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2.5 text-xs gap-1"
+                    className="flex-1 sm:flex-initial h-8 px-3 text-xs gap-1 font-medium"
                     disabled={idx === 0}
                     onClick={() => moveItem(idx, 'up')}
                   >
@@ -443,7 +444,7 @@ function OrderStepsViewer({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2.5 text-xs gap-1"
+                    className="flex-1 sm:flex-initial h-8 px-3 text-xs gap-1 font-medium"
                     disabled={idx === currentOrder.length - 1}
                     onClick={() => moveItem(idx, 'down')}
                   >
