@@ -48,14 +48,14 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="role">Rol</Label>
-        <Select name="role" defaultValue="alumno" required>
+        <Select name="role" defaultValue="administrador" required>
           <SelectTrigger id="role">
             <SelectValue placeholder="Selecciona un rol" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="alumno">Alumno</SelectItem>
-            <SelectItem value="profesor">Profesor</SelectItem>
             <SelectItem value="administrador">Administrador</SelectItem>
+            <SelectItem value="profesor">Profesor</SelectItem>
+            <SelectItem value="alumno">Alumno</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -64,7 +64,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       {success && <div className="text-green-500 text-sm">Usuario creado correctamente.</div>}
 
       <Button type="submit" disabled={loading}>
-        {loading ? 'Creando...' : 'Crear Usuario'}
+        {loading ? 'Creando...' : 'Crear Administrador'}
       </Button>
     </form>
   );

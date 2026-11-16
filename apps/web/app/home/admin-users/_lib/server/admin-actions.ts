@@ -231,11 +231,29 @@ export async function enrollStudentAction(userId: string, courseId: string) {
 }
 
 export async function deleteStudentUser(userId: string) {
-  await requireUserInServerComponent();
+  const currentUser = await requireUserInServerComponent();
   const adminClient = getSupabaseServerAdminClient();
 
   if (!userId) {
     throw new Error('Falta el ID del usuario a eliminar');
+  }
+
+  // Verificar que el usuario que ejecuta la acción es administrador
+  const { data: roleData } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+
+  const role = roleData?.role;
+  const isAdmin = role === 'administrador' || role === 'admin';
+
+  if (!isAdmin) {
+    throw new Error('Solo los administradores tienen permiso para eliminar usuarios.');
+  }
+
+  if (currentUser.id === userId) {
+    throw new Error('No puedes eliminar tu propia cuenta desde el listado de usuarios.');
   }
 
   // Eliminamos en orden inverso de dependencias. 

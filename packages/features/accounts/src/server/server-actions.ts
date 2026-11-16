@@ -40,15 +40,35 @@ export const deletePersonalAccountAction = enhanceAction(
       userId: user.id,
     };
 
-    if (!enableAccountDeletion) {
-      logger.warn(ctx, `Account deletion is not enabled`);
+    const adminClient = getSupabaseServerAdminClient();
 
-      throw new Error('Account deletion is not enabled');
+    // Verify user has admin privileges
+    const { data: roleData } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const role = roleData?.role;
+    const isAdmin = role === 'administrador' || role === 'admin';
+
+    if (!isAdmin) {
+      logger.warn(ctx, `User does not have admin permissions to delete account`);
+      throw new Error('Solo los administradores tienen permiso para eliminar cuentas.');
     }
 
     logger.info(ctx, `Deleting account...`);
 
     const client = getSupabaseServerClient();
+
+    // Clean up dependent LMS and user tables
+    await adminClient.from('course_enrollments').delete().eq('student_id', user.id);
+    await adminClient.from('course_progress').delete().eq('student_id', user.id);
+    await adminClient.from('lesson_progress').delete().eq('student_id', user.id);
+    await adminClient.from('activity_attempts').delete().eq('student_id', user.id);
+    await adminClient.from('students').delete().eq('user_id', user.id);
+    await adminClient.from('user_roles').delete().eq('id', user.id);
+    await adminClient.from('accounts').delete().eq('id', user.id);
 
     // create a new instance of the personal accounts service
     const service = createDeletePersonalAccountService();
@@ -58,7 +78,7 @@ export const deletePersonalAccountAction = enhanceAction(
 
     // delete the user's account and cancel all subscriptions
     await service.deletePersonalAccount({
-      adminClient: getSupabaseServerAdminClient(),
+      adminClient,
       userId: user.id,
       userEmail: user.email ?? null,
     });

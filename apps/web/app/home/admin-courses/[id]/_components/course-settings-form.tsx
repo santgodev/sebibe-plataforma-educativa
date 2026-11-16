@@ -29,12 +29,22 @@ import {
 } from '@kit/ui/select';
 import { Textarea } from '@kit/ui/textarea';
 
+import { UserCheck } from 'lucide-react';
+
 import { UpdateCourseSchema } from '~/lib/lms/schemas/course.schema';
 import { updateCourseAction } from '~/lib/lms/server/actions/course.actions';
 
 type FormValues = z.infer<typeof UpdateCourseSchema>;
 
-export function CourseSettingsForm({ course }: { course: any }) {
+export function CourseSettingsForm({
+  course,
+  instructors,
+  isAdmin,
+}: {
+  course: any;
+  instructors?: { id: string; name: string; email: string }[];
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
@@ -51,6 +61,7 @@ export function CourseSettingsForm({ course }: { course: any }) {
       level: course.level || 'all_levels',
       duration_minutes: course.duration_minutes || 0,
       category: course.category || '',
+      instructor_id: course.instructor_id || '',
     },
   });
 
@@ -163,6 +174,46 @@ export function CourseSettingsForm({ course }: { course: any }) {
             </FormItem>
           )}
         />
+
+        {instructors && instructors.length > 0 && (
+          <FormField
+            control={form.control}
+            name="instructor_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-1.5 font-semibold">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  <span>Profesor / Maestro Asignado</span>
+                </FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  value={field.value}
+                  disabled={!isAdmin}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Seleccionar profesor..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {instructors.map((inst) => (
+                      <SelectItem key={inst.id} value={inst.id}>
+                        {inst.name} ({inst.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {isAdmin
+                    ? 'Modifica el profesor responsable asignado a esta materia.'
+                    : 'Profesor responsable asignado a esta materia (solo modificable por administradores).'}
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 

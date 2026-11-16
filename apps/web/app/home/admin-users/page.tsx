@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { PageBody, PageHeader } from '@kit/ui/page';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
@@ -12,9 +13,22 @@ export const metadata = {
 };
 
 export default async function AdminUsersPage() {
-  await requireUserInServerComponent();
+  const user = await requireUserInServerComponent();
   const client = getSupabaseServerClient();
   const adminClient = getSupabaseServerAdminClient();
+
+  // Verify that the current user is an admin
+  const { data: userRole } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const role = userRole?.role;
+  const isAdmin = role === 'administrador' || role === 'admin';
+  if (!isAdmin) {
+    redirect('/home');
+  }
 
   let accounts: any[] = [];
   let roles: any[] = [];
@@ -70,7 +84,7 @@ export default async function AdminUsersPage() {
       </PageHeader>
 
       <PageBody>
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3">
+        <div className="mb-4 sm:mb-6 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 p-3 sm:p-4 text-xs sm:text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2.5 sm:gap-3">
           <div className="mt-0.5 rounded-full bg-blue-100 p-1">
             <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -85,8 +99,8 @@ export default async function AdminUsersPage() {
           </div>
         </div>
 
-        <div className="bg-background text-foreground rounded-xl border p-6">
-          <div className="mb-6 flex items-center justify-between">
+        <div className="bg-background text-foreground rounded-xl border p-3.5 sm:p-6 shadow-xs">
+          <div className="mb-4 sm:mb-6 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Listado de Usuarios</h2>
           </div>
           {pageError ? (
@@ -97,7 +111,7 @@ export default async function AdminUsersPage() {
               </pre>
             </div>
           ) : (
-            <UsersTable users={formattedUsers} courses={courses || []} />
+            <UsersTable users={formattedUsers} courses={courses || []} currentUserId={user.id} />
           )}
         </div>
       </PageBody>

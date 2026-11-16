@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { PageBody, PageHeader } from '@kit/ui/page';
@@ -11,6 +11,7 @@ import { CourseEnrollmentsForm } from './_components/course-enrollments-form';
 import { CourseGradesView } from './_components/course-grades-view';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { calculateSemester } from '~/home/admin-users/_lib/student-utils';
+import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
 export const metadata = {
   title: 'Editar Materia',
@@ -21,10 +22,27 @@ interface EditCoursePageProps {
 }
 
 export default async function EditCoursePage({ params }: EditCoursePageProps) {
+  const user = await requireUserInServerComponent();
   const { id } = await params;
   const client = getSupabaseServerClient();
+  const adminClient = getSupabaseServerAdminClient();
 
-  const { data: course, error: courseError } = await client
+  // Verify role
+  const { data: roleData } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const role = roleData?.role;
+  const isAdmin = role === 'administrador' || role === 'admin';
+  const isProfesor = role === 'profesor';
+
+  if (!isAdmin && !isProfesor) {
+    redirect('/home');
+  }
+
+  const { data: course, error: courseError } = await adminClient
     .from('courses')
     .select('*')
     .eq('id', id)
@@ -32,6 +50,11 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
 
   if (courseError || !course) {
     return notFound();
+  }
+
+  // If professor (not admin), they can only view and edit their own assigned course
+  if (!isAdmin && course.instructor_id !== user.id) {
+    redirect('/home/admin-courses');
   }
 
   // Fetch modules and nested lessons
@@ -54,8 +77,6 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
     ...m,
     lessons: (m.lessons || []).sort((a, b) => a.order_index - b.order_index),
   }));
-
-  const adminClient = getSupabaseServerAdminClient();
 
   // Fetch accounts, roles, and student profiles
   const [{ data: accounts }, { data: roles }, { data: studentProfiles }] = await Promise.all([
@@ -81,6 +102,13 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
       modality: prof?.modality || null,
     };
   });
+
+  const instructors = (accounts || []).filter(
+    (a) =>
+      roleMap.get(a.id) === 'profesor' ||
+      roleMap.get(a.id) === 'administrador' ||
+      roleMap.get(a.id) === 'admin',
+  );
 
   // Fetch current enrollments for this course
   const { data: enrollments } = await adminClient.from('course_enrollments').select('student_id').eq('course_id', id);
@@ -133,7 +161,11 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
                 <h2 className="mb-6 text-xl font-bold">
                   Configuración de la Materia
                 </h2>
-                <CourseSettingsForm course={course} />
+                <CourseSettingsForm
+                  course={course}
+                  instructors={instructors}
+                  isAdmin={isAdmin}
+                />
               </section>
             </TabsContent>
 

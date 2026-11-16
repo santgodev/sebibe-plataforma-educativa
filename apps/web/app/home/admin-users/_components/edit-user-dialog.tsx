@@ -164,7 +164,13 @@ export function EditUserDialog({ user, trigger }: EditUserDialogProps) {
             <div className="flex items-center justify-between border-b pb-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <GraduationCap className="h-4 w-4 text-emerald-600" />
-                <span>Ficha de Estudiante / Información Personal</span>
+                <span>
+                  {selectedRole === 'profesor'
+                    ? 'Ficha de Datos Personales (Profesor)'
+                    : selectedRole === 'administrador'
+                    ? 'Ficha de Datos Personales (Administrador)'
+                    : 'Ficha de Estudiante / Información Personal'}
+                </span>
               </div>
               {profile?.status && (
                 <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium capitalize ${
@@ -223,7 +229,7 @@ export function EditUserDialog({ user, trigger }: EditUserDialogProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="church" className="text-xs font-medium">Iglesia de Procedencia</Label>
+                <Label htmlFor="church" className="text-xs font-medium">Iglesia / Congregación</Label>
                 <Input 
                   id="church" 
                   name="church" 
@@ -243,43 +249,60 @@ export function EditUserDialog({ user, trigger }: EditUserDialogProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entryDate" className="text-xs font-medium">Fecha de Ingreso</Label>
-                <Input 
-                  id="entryDate" 
-                  name="entryDate" 
-                  type="date"
-                  defaultValue={profile?.entry_date || ''} 
-                />
-              </div>
+            {selectedRole === 'alumno' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="entryDate" className="text-xs font-medium">Fecha de Ingreso</Label>
+                  <Input 
+                    id="entryDate" 
+                    name="entryDate" 
+                    type="date" 
+                    defaultValue={profile?.entry_date || ''} 
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="modality" className="text-xs font-medium">Modalidad</Label>
-                <Select name="modality" defaultValue={profile?.modality || 'presencial'}>
-                  <SelectTrigger id="modality">
-                    <SelectValue placeholder="Modalidad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="presencial">Presencial</SelectItem>
-                    <SelectItem value="virtual">Virtual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="modality" className="text-xs font-medium">Modalidad</Label>
+                  <Select name="modality" defaultValue={profile?.modality || 'presencial'}>
+                    <SelectTrigger id="modality">
+                      <SelectValue placeholder="Modalidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="presencial">Presencial</SelectItem>
+                      <SelectItem value="virtual">Virtual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="status" className="text-xs font-medium">Estado del Alumno</Label>
-                <Select name="status" defaultValue={profile?.status || 'active'}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Activo</SelectItem>
-                    <SelectItem value="inactive">Inactivo</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="status" className="text-xs font-medium">Estado del Alumno</Label>
+                  <Select name="status" defaultValue={profile?.status || 'active'}>
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="inactive">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="status" className="text-xs font-medium">Estado del Usuario</Label>
+                  <Select name="status" defaultValue={profile?.status || 'active'}>
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="inactive">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (

@@ -102,3 +102,86 @@ export function calculateSemester(entryDateString: string | null | undefined): s
   return `${year} - ${period}`;
 }
 
+/**
+ * Normaliza y formatea nombres de semestres a formato estándar (ej: '2026 - I', '2026 - II')
+ */
+export function formatSemesterName(name: string | null | undefined): string {
+  if (!name) return 'Sin Semestre';
+  const trimmed = name.trim();
+
+  // Si viene como '2026 S-2', '2026-S2', '2026 S2', '2026-2', '2026 2', '2026 II'
+  const match2 = trimmed.match(/^(\d{4})[\s_-]*(?:S-?|semestre\s*)?2$/i) || 
+                 trimmed.match(/^(\d{4})[\s_-]*(?:S-?|semestre\s*)?II$/i);
+  if (match2) {
+    return `${match2[1]} - II`;
+  }
+
+  // Si viene como '2026 S-1', '2026-S1', '2026 S1', '2026-1', '2026 1', '2026 I'
+  const match1 = trimmed.match(/^(\d{4})[\s_-]*(?:S-?|semestre\s*)?1$/i) ||
+                 trimmed.match(/^(\d{4})[\s_-]*(?:S-?|semestre\s*)?I$/i);
+  if (match1) {
+    return `${match1[1]} - I`;
+  }
+
+  // Formato genérico con año y número/romano
+  const matchGeneric = trimmed.match(/(?:semestre\s*)?(\d{4})[\s_-]*([I|V|X]+|[1-2])/i);
+  if (matchGeneric) {
+    const cycle = matchGeneric[2].toUpperCase();
+    const formattedCycle = (cycle === '1' || cycle === 'I') ? 'I' : 'II';
+    return `${matchGeneric[1]} - ${formattedCycle}`;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Calcula el año académico (PRIMER AÑO, SEGUNDO AÑO, TERCER AÑO)
+ * basado en el tiempo que lleva estudiando desde su fecha de ingreso (entry_date).
+ * - Semestres 1 y 2 (hasta 1 año): 'PRIMER AÑO'
+ * - Semestres 3 y 4 (segundo año): 'SEGUNDO AÑO'
+ * - Semestres 5 y 6 (tercer año): 'TERCER AÑO'
+ */
+export function calculateAcademicYear(
+  entryDateString: string | null | undefined,
+  referenceDate: Date = new Date()
+): { yearName: string; semesterCount: number } {
+  if (!entryDateString) {
+    return { yearName: 'PRIMER AÑO', semesterCount: 1 };
+  }
+
+  let entryYear: number;
+  let entryMonth: number;
+
+  if (typeof entryDateString === 'string' && entryDateString.includes('-')) {
+    const parts = entryDateString.split('-');
+    entryYear = parseInt(parts[0], 10);
+    entryMonth = parseInt(parts[1], 10);
+  } else {
+    const d = new Date(entryDateString);
+    entryYear = d.getFullYear();
+    entryMonth = d.getMonth() + 1;
+  }
+
+  if (isNaN(entryYear) || isNaN(entryMonth)) {
+    return { yearName: 'PRIMER AÑO', semesterCount: 1 };
+  }
+
+  const currentYear = referenceDate.getFullYear();
+  // 1 = Ene-Jun, 2 = Jul-Dic
+  const currentCycle = referenceDate.getMonth() < 6 ? 1 : 2;
+  const entryCycle = entryMonth <= 6 ? 1 : 2;
+
+  // Total de semestres transcurridos
+  const semestersElapsed = Math.max(
+    1,
+    (currentYear - entryYear) * 2 + (currentCycle - entryCycle) + 1
+  );
+
+  if (semestersElapsed <= 2) {
+    return { yearName: 'PRIMER AÑO', semesterCount: semestersElapsed };
+  } else if (semestersElapsed <= 4) {
+    return { yearName: 'SEGUNDO AÑO', semesterCount: semestersElapsed };
+  } else {
+    return { yearName: 'TERCER AÑO', semesterCount: semestersElapsed };
+  }
+}

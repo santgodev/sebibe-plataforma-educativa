@@ -115,14 +115,14 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
   return (
     <div className="space-y-4">
       {/* Search and Filters Bar */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
+      <div className="flex flex-col lg:flex-row gap-2.5 sm:gap-3 items-stretch lg:items-center justify-between bg-card p-3 sm:p-4 rounded-xl border shadow-sm">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por nombre o correo electrónico..."
-            className="pl-9 pr-8 h-10 w-full"
+            className="pl-9 pr-8 h-9 sm:h-10 text-xs sm:text-sm w-full"
           />
           {searchQuery && (
             <button
@@ -136,14 +136,14 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
           )}
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:flex-nowrap gap-2 items-center w-full lg:w-auto">
           {/* Semester Filter */}
           <div className="w-full sm:w-[170px]">
             <Select
               value={semesterFilter}
               onValueChange={(val: any) => setSemesterFilter(val)}
             >
-              <SelectTrigger className="h-10">
+              <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm w-full">
                 <GraduationCap className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Semestre" />
               </SelectTrigger>
@@ -164,7 +164,7 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
               value={statusFilter}
               onValueChange={(val: any) => setStatusFilter(val)}
             >
-              <SelectTrigger className="h-10">
+              <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm w-full">
                 <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
@@ -182,7 +182,7 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
               value={sortBy}
               onValueChange={(val: any) => setSortBy(val)}
             >
-              <SelectTrigger className="h-10">
+              <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm w-full">
                 <ArrowUpDown className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
@@ -238,7 +238,67 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+      {/* VISTA MOBILE: Tarjetas de Estudiantes */}
+      <div className="divide-y sm:hidden">
+        {filteredStudents.map((student) => (
+          <div key={student.id} className="p-3.5 space-y-2.5 hover:bg-muted/20 transition-colors">
+            <div className="flex items-start justify-between gap-2">
+              <Link href={`/home/admin-users/${student.id}`} className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                  {student.name ? student.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-foreground text-sm truncate">
+                    {student.name || 'Sin nombre'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {student.email || 'Sin correo registrado'}
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                href={`/home/admin-users/${student.id}`}
+                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0"
+              >
+                <span>Reporte</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1 border-t">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {student.semester && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium bg-background">
+                    {student.semester}
+                  </Badge>
+                )}
+                {student.modality && (
+                  <Badge variant="secondary" className="text-[9px] uppercase px-1.5 py-0">
+                    {student.modality}
+                  </Badge>
+                )}
+              </div>
+
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                  student.coursesCount > 0
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'bg-muted text-muted-foreground'
+                )}
+              >
+                <BookOpen className="h-3 w-3" />
+                <span>{student.coursesCount} {student.coursesCount === 1 ? 'Materia' : 'Materias'}</span>
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* VISTA DESKTOP: Tabla */}
+      <div className="overflow-x-auto hidden sm:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/40 text-muted-foreground border-b text-xs uppercase tracking-wider">
                 <tr>
@@ -331,6 +391,7 @@ export function AdminGradesTable({ students }: AdminGradesTableProps) {
               </tbody>
             </table>
           </div>
+        </>
         )}
       </div>
     </div>

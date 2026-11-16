@@ -6,11 +6,12 @@ import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client'
 import { Button } from '@kit/ui/button';
 
 import { AddStudentDialog } from './_components/add-student-dialog';
-import { MigrateCohortDialog } from './_components/migrate-cohort-dialog';
+import { MigrateCohortDialog, CohortOptionForMigration } from './_components/migrate-cohort-dialog';
 import { AddScheduleDialog } from './_components/add-schedule-dialog';
 import { CohortStudentsList } from './_components/cohort-students-list';
+import { CreateCourseQuickDialog } from './_components/create-course-quick-dialog';
 
-import { calculateSemester } from '~/home/admin-users/_lib/student-utils';
+import { calculateSemester, formatSemesterName } from '~/home/admin-users/_lib/student-utils';
 
 export const metadata = {
   title: 'Detalles del Grupo',
@@ -19,11 +20,12 @@ export const metadata = {
 export default async function CohortDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }> | { id: string };
 }) {
   await requireUserInServerComponent();
   const client = getSupabaseServerAdminClient();
-  const cohortId = params.id;
+  const resolvedParams = await params;
+  const cohortId = resolvedParams.id;
 
   // Fetch cohort info
   const { data: cohort, error: cohortError } = await client
@@ -44,10 +46,11 @@ export default async function CohortDetailsPage({
   }
 
   // Load accounts, roles, and student profiles
-  const [{ data: accounts }, { data: roles }, { data: studentProfiles }] = await Promise.all([
+  const [{ data: accounts }, { data: roles }, { data: studentProfiles }, { data: allEnrollments }] = await Promise.all([
     client.from('accounts').select('id, name, email'),
     client.from('user_roles').select('id, role'),
-    client.from('students').select('user_id, modality, document_id, entry_date')
+    client.from('students').select('user_id, modality, document_id, entry_date'),
+    client.from('cohort_enrollments').select('cohort_id, student_id'),
   ]);
 
   const roleMap = new Map((roles || []).map(r => [r.id, r.role]));
@@ -64,21 +67,41 @@ export default async function CohortDetailsPage({
   });
   const allProfesores = (accounts || []).filter(a => roleMap.get(a.id) === 'profesor' || roleMap.get(a.id) === 'administrador');
 
-  // Load enrolled students
-  const { data: enrollments } = await client
-    .from('cohort_enrollments')
-    .select('*')
-    .eq('cohort_id', cohortId);
-  const enrolledStudentIds = new Set((enrollments || []).map(e => e.student_id));
+  // Load enrolled students in this cohort
+  const enrolledStudentIds = new Set(
+    (allEnrollments || []).filter(e => e.cohort_id === cohortId).map(e => e.student_id)
+  );
   const enrolledStudents = allAlumnos.filter(a => enrolledStudentIds.has(a.id));
-  // Force hot reload: available students
   const availableStudents = allAlumnos.filter(a => !enrolledStudentIds.has(a.id));
 
-  // Load all other cohorts to allow migrating/bulk-enrolling groups
-  const { data: otherCohorts } = await client
+  // Count students in other cohorts for migration preview
+  const enrollmentCountsByCohort = new Map<string, number>();
+  (allEnrollments || []).forEach(e => {
+    enrollmentCountsByCohort.set(e.cohort_id, (enrollmentCountsByCohort.get(e.cohort_id) || 0) + 1);
+  });
+
+  // Load all other cohorts to allow migrating/bulk-enrolling groups, including their academic period
+  const { data: otherCohortsRaw } = await client
     .from('cohorts')
-    .select('id, name')
+    .select(`
+      id,
+      name,
+      period_id,
+      academic_periods (
+        id,
+        name
+      )
+    `)
     .neq('id', cohortId);
+
+  const formattedOtherCohorts: CohortOptionForMigration[] = (otherCohortsRaw || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    period_id: c.period_id,
+    semesterName: formatSemesterName(c.academic_periods?.name),
+    rawSemesterName: c.academic_periods?.name || 'Sin Semestre',
+    student_count: enrollmentCountsByCohort.get(c.id) || 0,
+  }));
 
   // Load courses
   const { data: courses } = await client
@@ -105,60 +128,68 @@ export default async function CohortDetailsPage({
     };
   });
 
+  const formattedPeriodName = formatSemesterName((cohort.academic_periods as any)?.name);
+
   return (
     <>
       <PageHeader
-        title={`Grupo: ${cohort.name}`}
-        description={`Semestre: ${(cohort.academic_periods as any)?.name}`}
+        title={`Cohorte: ${cohort.name}`}
+        description={`Semestre académico: ${formattedPeriodName}`}
       >
         <Link href="/home/admin-cohorts">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 font-medium">
             <ArrowLeft className="h-4 w-4" />
-            Volver
+            Volver a Cohortes
           </Button>
         </Link>
       </PageHeader>
 
       <PageBody>
-        <div className="mb-8 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800 flex items-start gap-3">
-          <div className="mt-0.5 rounded-full bg-indigo-100 p-1">
-            <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="mb-8 rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/20 dark:border-indigo-900 p-4 text-sm text-indigo-800 dark:text-indigo-300 flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 p-1">
+            <svg className="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <h4 className="font-semibold text-indigo-900 mb-1">Guía: Detalle del Grupo</h4>
+            <h4 className="font-semibold text-indigo-900 dark:text-indigo-200 mb-1">Guía: Detalle de la Cohorte</h4>
             <p className="leading-relaxed">
-              Aquí gestionas el día a día del grupo. <br/>
-              <strong>1. Estudiantes:</strong> En lugar de matricular uno a uno, puedes seleccionar un grupo anterior (ej. del semestre pasado) y traer a todos sus alumnos a este nuevo grupo.<br/>
-              <strong>2. Cronograma:</strong> Programa las materias. Al elegir la fecha de inicio, la fecha de fin se calculará sola según las semanas que dura la materia. ¡Los alumnos solo verán la materia durante ese periodo!
+              Aquí gestionas el día a día de la cohorte {cohort.name}. <br/>
+              <strong>1. Estudiantes:</strong> En lugar de matricular uno a uno, puedes seleccionar un grupo anterior (agrupado por semestre ej: 2026 - I, 2026 - II) y traer a todos sus alumnos a esta cohorte.<br/>
+              <strong>2. Cronograma:</strong> Programa las materias existentes o crea una nueva materia directamente. Al elegir la fecha de inicio, la fecha de fin se calculará sola según las semanas que dura la materia.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Cronograma */}
-          <div className="bg-background text-foreground rounded-xl border p-6 flex flex-col h-full">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Cronograma de Materias</h2>
-              <AddScheduleDialog 
-                cohortId={cohortId} 
-                courses={courses || []} 
-                instructors={allProfesores} 
-              />
+          {/* Cronograma de Materias */}
+          <div className="bg-background text-foreground rounded-xl border p-3.5 sm:p-6 flex flex-col h-full shadow-xs">
+            <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-bold">Cronograma de Materias</h2>
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <CreateCourseQuickDialog 
+                  instructors={allProfesores} 
+                  cohortId={cohortId} 
+                />
+                <AddScheduleDialog 
+                  cohortId={cohortId} 
+                  courses={courses || []} 
+                  instructors={allProfesores} 
+                />
+              </div>
             </div>
             
             <div className="space-y-4 flex-1">
               {!formattedSchedules || formattedSchedules.length === 0 ? (
                 <div className="text-muted-foreground bg-muted/20 rounded-xl border p-8 text-center text-sm">
-                  No hay materias programadas.
+                  No hay materias programadas para este grupo.
                 </div>
               ) : (
                 formattedSchedules.map(schedule => (
-                  <div key={schedule.id} className="border p-4 rounded-lg bg-card">
-                    <h3 className="font-bold">{schedule.course_title}</h3>
+                  <div key={schedule.id} className="border p-4 rounded-lg bg-card shadow-2xs">
+                    <h3 className="font-bold text-base text-foreground">{schedule.course_title}</h3>
                     <p className="text-sm text-muted-foreground mt-1">Profesor: {schedule.instructor_name}</p>
-                    <div className="mt-3 flex items-center justify-between text-xs font-medium text-primary">
+                    <div className="mt-3 flex items-center justify-between text-xs font-semibold text-primary">
                       <span>Inicia: {new Date(schedule.start_date).toLocaleDateString()}</span>
                       <span>Termina: {new Date(schedule.end_date).toLocaleDateString()}</span>
                     </div>
@@ -168,18 +199,18 @@ export default async function CohortDetailsPage({
             </div>
           </div>
 
-          {/* Estudiantes */}
-          <div className="bg-background text-foreground rounded-xl border p-6 flex flex-col h-full">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Estudiantes Matriculados ({enrolledStudents.length})</h2>
-              <div className="flex items-center gap-2">
+          {/* Estudiantes Matriculados */}
+          <div className="bg-background text-foreground rounded-xl border p-3.5 sm:p-6 flex flex-col h-full shadow-xs">
+            <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-bold">Estudiantes Matriculados ({enrolledStudents.length})</h2>
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                 <AddStudentDialog 
                   cohortId={cohortId} 
                   availableStudents={availableStudents} 
                 />
                 <MigrateCohortDialog 
                   cohortId={cohortId} 
-                  otherCohorts={otherCohorts || []} 
+                  otherCohorts={formattedOtherCohorts} 
                 />
               </div>
             </div>

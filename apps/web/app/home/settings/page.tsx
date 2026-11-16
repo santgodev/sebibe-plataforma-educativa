@@ -1,6 +1,7 @@
 import { use } from 'react';
 
 import { PersonalAccountSettingsContainer } from '@kit/accounts/personal-account-settings';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { PageBody } from '@kit/ui/page';
 
 import authConfig from '~/config/auth.config';
@@ -10,11 +11,6 @@ import { withI18n } from '~/lib/i18n/with-i18n';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
 const callbackPath = pathsConfig.auth.callback;
-
-const features = {
-  enableAccountDeletion: true,
-  enablePasswordUpdate: authConfig.providers.password,
-};
 
 const paths = {
   callback: callbackPath + `?next=${pathsConfig.app.profileSettings}`,
@@ -29,9 +25,32 @@ export const generateMetadata = async () => {
   };
 };
 
+async function checkIsAdmin(userId: string) {
+  try {
+    const adminClient = getSupabaseServerAdminClient();
+    const { data: roleData } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const role = roleData?.role;
+    return role === 'administrador' || role === 'admin';
+  } catch (error) {
+    console.error('Error verifying admin role for settings:', error);
+    return false;
+  }
+}
+
 function PersonalAccountSettingsPage() {
   const user = use(requireUserInServerComponent());
   const userId = user.id;
+  const isAdmin = use(checkIsAdmin(userId));
+
+  const features = {
+    enableAccountDeletion: isAdmin,
+    enablePasswordUpdate: authConfig.providers.password,
+  };
 
   return (
     <PageBody>

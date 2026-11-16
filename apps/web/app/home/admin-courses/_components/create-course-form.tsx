@@ -27,11 +27,30 @@ import {
 } from '@kit/ui/select';
 import { Textarea } from '@kit/ui/textarea';
 
+import { UserCheck } from 'lucide-react';
+
 import { CreateCourseSchema } from '~/lib/lms/schemas/course.schema';
 import { createCourseAction } from '~/lib/lms/server/actions/course.actions';
 
-export function CreateCourseForm() {
+interface CreateCourseFormProps {
+  instructors?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  }[];
+  currentUserId?: string;
+  isAdmin?: boolean;
+}
+
+export function CreateCourseForm(props: CreateCourseFormProps) {
   const router = useRouter();
+
+  const defaultInstructor =
+    props.currentUserId ||
+    (props.instructors && props.instructors.length > 0
+      ? props.instructors[0]!.id
+      : '');
 
   const form = useForm<z.infer<typeof CreateCourseSchema>>({
     resolver: zodResolver(CreateCourseSchema) as any,
@@ -41,6 +60,7 @@ export function CreateCourseForm() {
       short_description: '',
       level: 'all_levels',
       duration_minutes: 0,
+      instructor_id: defaultInstructor,
     },
   });
 
@@ -102,6 +122,50 @@ export function CreateCourseForm() {
                   {...field}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="instructor_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-1.5 font-semibold">
+                <UserCheck className="w-4 h-4 text-primary" />
+                <span>Profesor / Maestro Asignado</span>
+              </FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                value={field.value}
+                disabled={!props.isAdmin && (props.instructors || []).length > 0}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar profesor..." />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {(!props.instructors || props.instructors.length === 0) ? (
+                    <SelectItem value="none" disabled>
+                      No hay profesores registrados
+                    </SelectItem>
+                  ) : (
+                    props.instructors.map((inst) => (
+                      <SelectItem key={inst.id} value={inst.id}>
+                        {inst.name} ({inst.email})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {props.isAdmin
+                  ? 'Selecciona el maestro responsable de impartir esta materia y evaluar a los estudiantes.'
+                  : 'Esta materia quedará asignada a tu perfil de profesor.'}
+              </p>
               <FormMessage />
             </FormItem>
           )}

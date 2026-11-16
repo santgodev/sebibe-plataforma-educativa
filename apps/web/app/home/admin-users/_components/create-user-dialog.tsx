@@ -16,6 +16,7 @@ import {
 
 import { CreateUserForm } from './create-user-form';
 import { CreateStudentForm } from './create-student-form';
+import { CreateTeacherForm } from './create-teacher-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kit/ui/tabs';
 
 export function CreateUserDialog() {
@@ -29,23 +30,27 @@ export function CreateUserDialog() {
           Crear Nuevo Usuario
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] overflow-y-auto max-h-[90vh]">
+      <DialogContent className="sm:max-w-[550px] overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Agregar Usuario</DialogTitle>
           <DialogDescription>
-            Registra un nuevo estudiante con perfil completo, o crea cuentas de personal (profesor/administrador).
+            Registra un estudiante o profesor con sus datos personales, o crea un administrador del sistema.
           </DialogDescription>
         </DialogHeader>
         <div className="py-2">
           <Tabs defaultValue="student" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="student">Estudiante</TabsTrigger>
-              <TabsTrigger value="staff">Personal</TabsTrigger>
+              <TabsTrigger value="teacher">Profesor</TabsTrigger>
+              <TabsTrigger value="admin">Administrador</TabsTrigger>
             </TabsList>
             <TabsContent value="student">
               <CreateStudentForm onSuccess={() => setOpen(false)} />
             </TabsContent>
-            <TabsContent value="staff">
+            <TabsContent value="teacher">
+              <CreateTeacherForm onSuccess={() => setOpen(false)} />
+            </TabsContent>
+            <TabsContent value="admin">
               <CreateUserForm onSuccess={() => setOpen(false)} />
             </TabsContent>
           </Tabs>

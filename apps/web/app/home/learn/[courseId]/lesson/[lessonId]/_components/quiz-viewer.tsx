@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
+  AlertTriangle,
   ArrowRight,
+  Maximize2,
+  ShieldAlert,
   ArrowUpDown,
   CheckCircle2,
   ChevronDown,
@@ -29,6 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@kit/ui/select';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@kit/ui/alert-dialog';
 
 import { getFullActivityAction, submitActivityAttemptAction, getActivityAttemptsAction } from '~/lib/lms/server/actions/activity.actions';
 import { markLessonCompleteAction } from '~/lib/lms/server/actions/progress.actions';
@@ -172,6 +183,8 @@ function MatchingViewer({
           );
         })}
       </div>
+
+      
     </div>
   );
 }
@@ -482,6 +495,17 @@ export function QuizViewer({
   const [pastAttempts, setPastAttempts] = useState<any[]>([]);
   const [studentSeed, setStudentSeed] = useState<string>('');
 
+  // Control de seguridad e integridad (detección de ventanas y pantalla completa)
+  const [warningStrikes, setWarningStrikes] = useState<number>(0);
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState<boolean>(false);
+  const [isDisqualified, setIsDisqualified] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
+  const answersRef = useRef<Record<string, any>>(answers);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
   useEffect(() => {
     startTransition(async () => {
       try {
@@ -568,6 +592,10 @@ export function QuizViewer({
   };
 
   const handleSubmit = () => {
+    isSubmittingRef.current = true;
+    if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
     startTransition(async () => {
       try {
         const evalResult = await submitActivityAttemptAction({
@@ -601,6 +629,115 @@ export function QuizViewer({
       }
     });
   };
+
+  // Salida e invalidación del cuestionario (Strike 2)
+  const handleDisqualifyQuiz = useCallback(() => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
+    setIsSecurityModalOpen(false);
+    setIsDisqualified(true);
+
+    if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    startTransition(async () => {
+      try {
+        const evalResult = await submitActivityAttemptAction({
+          activity_id: activityId,
+          answers: answersRef.current || {},
+        });
+        setResult(evalResult);
+        toast.error('Cuestionario cerrado por deshonestidad académica / salida de ventana.', {
+          duration: 7000,
+        });
+        router.refresh();
+      } catch (e: any) {
+        console.error('Error auto-submitting on security violation:', e);
+      }
+    });
+  }, [activityId, router]);
+
+  // Manejo de violaciones (Strike 1 = Advertencia, Strike 2 = Cierre definitivo)
+  const handleSecurityViolation = useCallback(() => {
+    if (!isStarted || result || isDisqualified || isSubmittingRef.current) return;
+    if (isSecurityModalOpen) return;
+
+    if (warningStrikes === 0) {
+      setWarningStrikes(1);
+      setIsSecurityModalOpen(true);
+      toast.warning('¡Advertencia de Seguridad Académica!', {
+        description: 'Se detectó que saliste de la ventana o pantalla del cuestionario.',
+        duration: 5000,
+      });
+    } else {
+      handleDisqualifyQuiz();
+    }
+  }, [isStarted, result, isDisqualified, isSecurityModalOpen, warningStrikes, handleDisqualifyQuiz]);
+
+  // Aceptar advertencia y regresar a pantalla completa
+  const acknowledgeWarning = async () => {
+    setIsSecurityModalOpen(false);
+    try {
+      if (typeof document !== 'undefined' && !document.fullscreenElement && document.documentElement?.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Iniciar cuestionario solicitando pantalla completa
+  const startQuiz = async () => {
+    try {
+      if (typeof document !== 'undefined' && document.documentElement?.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) {
+      console.warn('Fullscreen no disponible o rechazado:', e);
+    }
+    setWarningStrikes(0);
+    setIsSecurityModalOpen(false);
+    setIsDisqualified(false);
+    isSubmittingRef.current = false;
+    setIsStarted(true);
+  };
+
+  // Escuchar eventos de cambio de ventana, visibilidad y pantalla completa
+  useEffect(() => {
+    if (!isStarted || result || isDisqualified) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleSecurityViolation();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setTimeout(() => {
+        if (!document.hasFocus() && !isSubmittingRef.current) {
+          handleSecurityViolation();
+        }
+      }, 250);
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !isSubmittingRef.current) {
+        handleSecurityViolation();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isStarted, result, isDisqualified, handleSecurityViolation]);
 
   if (!isStarted) {
     return (
@@ -711,11 +848,68 @@ export function QuizViewer({
           }
           
           return (
-            <Button size="lg" className="w-full sm:w-auto px-6 sm:px-12 text-base sm:text-lg h-12 sm:h-14" onClick={() => setIsStarted(true)}>
+            <div className="space-y-4">
+              <div className="flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 max-w-sm mx-auto text-left shadow-2xs">
+                <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-xs">Protección de Pantalla y Ventanas</span>
+                  <span className="text-[11px] text-muted-foreground leading-relaxed block mt-0.5">
+                    Este cuestionario se realiza en <strong>pantalla completa</strong>. Si sales de la pantalla o abres otras ventanas/pestañas, recibirás una advertencia; a la segunda salida, el cuestionario se cancelará automáticamente.
+                  </span>
+                </div>
+              </div>
+
+              <Button size="lg" className="w-full sm:w-auto px-6 sm:px-12 text-base sm:text-lg h-12 sm:h-14" onClick={startQuiz}>
               {pastAttempts.length > 0 ? 'Reintentar Cuestionario' : 'Comenzar Cuestionario'}
             </Button>
+            </div>
           );
         })()}
+      </div>
+    );
+  }
+
+  if (isDisqualified) {
+    return (
+      <div className="bg-background text-foreground mx-auto max-w-2xl rounded-2xl border-2 border-destructive/40 p-6 sm:p-10 shadow-lg text-center space-y-6 animate-in fade-in duration-300">
+        <div className="h-16 w-16 bg-destructive/15 text-destructive rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <ShieldAlert className="h-9 w-9" />
+        </div>
+
+        <div className="space-y-2">
+          <Badge variant="destructive" className="px-3 py-1 text-xs uppercase font-bold tracking-wider">
+            Infracción de Seguridad Académica
+          </Badge>
+          <h2 className="text-2xl font-extrabold text-foreground">
+            Cuestionario Cancelado y Cerrado
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-lg mx-auto">
+            El sistema detectó que abriste otras ventanas, cambiaste de pestaña o saliste de la pantalla completa tras haber recibido la primera advertencia.
+          </p>
+        </div>
+
+        <div className="bg-muted/30 border rounded-xl p-4 text-xs text-left max-w-md mx-auto space-y-2">
+          <div className="flex justify-between border-b pb-1.5">
+            <span className="font-semibold text-muted-foreground">Estado del intento:</span>
+            <span className="font-bold text-destructive">Cerrado por salida de ventana</span>
+          </div>
+          {result && (
+            <div className="flex justify-between pt-0.5">
+              <span className="font-semibold text-muted-foreground">Calificación registrada:</span>
+              <span className="font-bold text-foreground">{(result.score / 20).toFixed(1)} / 5.0</span>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="w-full sm:w-auto px-8"
+          >
+            Volver a la Lección
+          </Button>
+        </div>
       </div>
     );
   }
@@ -726,7 +920,13 @@ export function QuizViewer({
         <div className="flex items-center gap-2.5 sm:gap-3">
           <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
           <div>
-            <h2 className="text-foreground text-xl sm:text-2xl font-bold">{activity.title}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-foreground text-xl sm:text-2xl font-bold">{activity.title}</h2>
+              <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-800 font-semibold shadow-2xs">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Modo Seguro Activo
+              </span>
+            </div>
             {activity.passing_score && (
               <p className="text-xs sm:text-sm text-muted-foreground">Nota mínima para aprobar: {(activity.passing_score / 20).toFixed(1)} de 5.0</p>
             )}
@@ -944,6 +1144,43 @@ export function QuizViewer({
           </div>
         )}
       </div>
+      {/* Modal de Advertencia por cambio de ventana (Strike 1) */}
+      <AlertDialog open={isSecurityModalOpen && isStarted && !isDisqualified}>
+        <AlertDialogContent className="sm:max-w-[480px] border-amber-300 dark:border-amber-800 bg-card shadow-2xl">
+          <AlertDialogHeader className="flex flex-col items-center text-center space-y-3">
+            <div className="h-14 w-14 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center animate-bounce">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+
+            <AlertDialogTitle className="text-xl font-bold text-foreground">
+              ⚠️ Advertencia de Seguridad (1 de 1)
+            </AlertDialogTitle>
+
+            <AlertDialogDescription className="text-sm text-muted-foreground text-center leading-relaxed">
+              Se detectó que <strong>saliste de la pantalla del cuestionario o abriste otra ventana/pestaña</strong>.
+            </AlertDialogDescription>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4 text-xs text-amber-900 dark:text-amber-200 text-left space-y-1">
+              <p className="font-bold">⚠️ Esta es tu única advertencia permitida.</p>
+              <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                Si vuelves a abrir otra ventana, cambiar de pestaña o salir de pantalla completa, el cuestionario <strong>se cerrará de forma automática y definitiva</strong>, registrando tu intento como reprobado.
+              </p>
+            </div>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="mt-4 pt-3 border-t sm:justify-center">
+            <Button
+              type="button"
+              size="lg"
+              onClick={acknowledgeWarning}
+              className="w-full sm:w-auto px-8 font-bold gap-2"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              <span>Entendido, volver al cuestionario</span>
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

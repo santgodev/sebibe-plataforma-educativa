@@ -57,7 +57,7 @@ export function StudentCourseCard({
           }
         }}
         className={cn(
-          'p-4 sm:p-6 bg-muted/20 cursor-pointer select-none transition-colors hover:bg-muted/35 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4',
+          'p-3.5 sm:p-5 md:p-6 bg-muted/20 cursor-pointer select-none transition-colors hover:bg-muted/35 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4',
           isExpanded && 'border-b bg-muted/30'
         )}
       >
@@ -67,17 +67,17 @@ export function StudentCourseCard({
             <img
               src={course.thumbnail_url}
               alt={course.title}
-              className="w-16 h-14 sm:w-24 sm:h-20 object-cover rounded-lg border shadow-xs shrink-0"
+              className="w-14 h-12 sm:w-24 sm:h-20 object-cover rounded-lg border shadow-xs shrink-0"
             />
           ) : (
-            <div className="w-16 h-14 sm:w-24 sm:h-20 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0">
+            <div className="w-14 h-12 sm:w-24 sm:h-20 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0">
               <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
             </div>
           )}
 
           <div className="space-y-1.5 flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <h3 className="font-bold text-base sm:text-xl text-foreground leading-snug">
+              <h3 className="font-bold text-sm sm:text-lg md:text-xl text-foreground leading-snug break-words">
                 {course.title}
               </h3>
               {course.hasNeedsGrading && (
@@ -96,7 +96,7 @@ export function StudentCourseCard({
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-0.5 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 pt-0.5 text-[11px] sm:text-xs text-muted-foreground">
               <span>
                 <strong>{course.completedLessons}</strong> de {course.totalLessons} lecciones
               </span>
@@ -105,7 +105,7 @@ export function StudentCourseCard({
             </div>
 
             {/* Barra de progreso de lecciones */}
-            <div className="w-full sm:w-52 max-w-[200px] bg-muted rounded-full h-1.5 overflow-hidden mt-1">
+            <div className="w-full max-w-[160px] sm:max-w-[200px] bg-muted rounded-full h-1.5 overflow-hidden mt-1">
               <div
                 className="bg-primary h-1.5 rounded-full transition-all"
                 style={{ width: `${course.percentage}%` }}
@@ -115,14 +115,14 @@ export function StudentCourseCard({
         </div>
 
         {/* Lado derecho: Calificación de la materia y botón de despliegue */}
-        <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 border-t md:border-t-0 pt-3 md:pt-0 shrink-0 w-full md:w-auto">
+        <div className="flex items-center justify-between md:justify-end gap-2 sm:gap-4 border-t md:border-t-0 pt-2.5 md:pt-0 shrink-0 w-full md:w-auto">
           <div className="text-left md:text-right">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+            <span className="text-[9px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
               Nota de la Materia
             </span>
             {avgGrade5 !== null ? (
               <div className="flex items-center md:justify-end gap-2 mt-0.5">
-                <span className="text-xl sm:text-2xl font-black text-foreground">
+                <span className="text-lg sm:text-2xl font-black text-foreground">
                   {avgGrade5}
                   <span className="text-xs font-normal text-muted-foreground"> / 5.0</span>
                 </span>
@@ -147,7 +147,7 @@ export function StudentCourseCard({
               type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5 text-xs font-semibold h-9 px-3 bg-background hover:bg-muted text-foreground border shadow-2xs whitespace-nowrap"
+              className="gap-1 sm:gap-1.5 text-xs font-semibold h-8 sm:h-9 px-2 sm:px-3 bg-background hover:bg-muted text-foreground border shadow-2xs whitespace-nowrap"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsExpanded((prev) => !prev);
@@ -170,7 +170,7 @@ export function StudentCourseCard({
 
       {/* Contenido Desplegable: Notas y Evaluaciones de la Asignatura */}
       {isExpanded && (
-        <div className="p-5 sm:p-6 space-y-4 bg-background animate-in fade-in-50 duration-200">
+        <div className="p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4 bg-background animate-in fade-in-50 duration-200">
           <div className="flex items-center justify-between pb-2 border-b">
             <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-primary" />
@@ -212,13 +212,13 @@ export function StudentCourseCard({
                 return (
                   <div
                     key={attempt.id}
-                    className="border border-l-4 rounded-xl p-3.5 sm:p-4 bg-muted/10 transition-all hover:bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-2xs"
+                    className="border border-l-4 rounded-xl p-3 sm:p-4 bg-muted/10 transition-all hover:bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 shadow-2xs"
                     style={{ borderLeftColor }}
                   >
                     {/* De qué es esa nota */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <h5 className="font-bold text-sm sm:text-base text-foreground leading-tight">
+                        <h5 className="font-bold text-xs sm:text-base text-foreground leading-tight">
                           {activity?.title || 'Evaluación'}
                         </h5>
                         <Badge variant="outline" className="text-[10px] font-mono font-bold">
@@ -261,11 +261,11 @@ export function StudentCourseCard({
                     </div>
 
                     {/* Cuadro de la Nota y Botón para Calificar / Ver Entrega */}
-                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 border-t sm:border-t-0 pt-2.5 sm:pt-0 w-full sm:w-auto">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 w-full sm:w-auto">
                       <div className="text-left sm:text-right">
                         {isNeedsGrading ? (
                           <div>
-                            <span className="text-sm sm:text-base font-bold text-amber-700 dark:text-amber-400 block">
+                            <span className="text-xs sm:text-base font-bold text-amber-700 dark:text-amber-400 block">
                               {isStudentView ? 'En revisión' : 'Por calificar'}
                             </span>
                             <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
@@ -309,10 +309,10 @@ export function StudentCourseCard({
                           <Button
                             size="sm"
                             variant="outline"
-                            className="font-semibold text-xs gap-1.5 border text-foreground bg-background hover:bg-muted shadow-2xs whitespace-nowrap h-9 px-3"
+                            className="font-semibold text-xs gap-1 sm:gap-1.5 border text-foreground bg-background hover:bg-muted shadow-2xs whitespace-nowrap h-8 sm:h-9 px-2 sm:px-3"
                           >
                             <FileText className="w-3.5 h-3.5 text-primary" />
-                            <span>{isStudentView ? 'Ver mi Entrega' : 'Ver Entrega y Calificar'}</span>
+                            <span className="hidden sm:inline">{isStudentView ? 'Ver mi Entrega' : 'Ver Entrega y Calificar'}</span><span className="inline sm:hidden">{isStudentView ? 'Ver Entrega' : 'Calificar'}</span>
                           </Button>
                         }
                       />

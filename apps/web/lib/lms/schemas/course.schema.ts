@@ -11,6 +11,7 @@ export const CreateCourseSchema = z.object({
     .default('all_levels'),
   duration_minutes: z.number().min(0).optional(),
   category: z.string().optional(),
+  instructor_id: z.string().uuid().optional(),
 });
 
 export const UpdateCourseSchema = CreateCourseSchema.partial().extend({

@@ -25,14 +25,14 @@ export function StudentCoursesSection({
   return (
     <div className="space-y-4">
       {/* Encabezado de la Sección de Asignaturas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
         <div className="flex items-start sm:items-center gap-2.5">
-          <BookOpen className="h-6 w-6 text-primary shrink-0 mt-0.5 sm:mt-0" />
+          <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0 mt-0.5 sm:mt-0" />
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">
+            <h2 className="text-base sm:text-xl font-bold text-foreground leading-tight">
               Asignaturas y Calificaciones
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            <p className="text-[11px] sm:text-sm text-muted-foreground mt-0.5">
               {isStudentView
                 ? 'Haz clic en cualquier materia para desplegar y ver tus notas y evaluaciones.'
                 : 'Haz clic en cualquier materia para desplegar y ver las notas y detalles de sus evaluaciones.'}
@@ -46,7 +46,7 @@ export function StudentCoursesSection({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground h-7 sm:h-8 px-2 gap-1 font-medium"
+                className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground h-7 sm:h-8 px-1.5 sm:px-2 gap-1 font-medium"
                 onClick={() => handleExpandAll(true)}
               >
                 <ChevronsUpDown className="w-3.5 h-3.5" />
@@ -56,7 +56,7 @@ export function StudentCoursesSection({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground h-7 sm:h-8 px-2 font-medium"
+                className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground h-7 sm:h-8 px-1.5 sm:px-2 font-medium"
                 onClick={() => handleExpandAll(false)}
               >
                 <span>Colapsar todas</span>

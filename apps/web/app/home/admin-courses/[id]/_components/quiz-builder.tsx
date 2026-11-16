@@ -101,10 +101,20 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                     q.answers.push({
                       id: crypto.randomUUID(),
                       answer_text: ' | ',
+                      left: '',
+                      right: '',
                       is_correct: true,
                       order_index: q.answers.length,
                     });
                   }
+                  q.answers = q.answers.map((a: any) => {
+                    const rawParts = (a.answer_text || '').split('|');
+                    return {
+                      ...a,
+                      left: a.left !== undefined ? a.left : (rawParts[0] ? rawParts[0].trim() : ''),
+                      right: a.right !== undefined ? a.right : (rawParts.length > 1 ? rawParts.slice(1).join('|').trim() : ''),
+                    };
+                  });
                 } else if (q.type === 'order_steps') {
                   const last = q.answers[q.answers.length - 1];
                   if (!last || (last.answer_text && last.answer_text.trim() !== '')) {
@@ -145,10 +155,23 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
         const cleanedQuestions = questions.map((q, idx) => {
           let cleanedAnswers = q.answers || [];
           if (q.type === 'matching') {
-            cleanedAnswers = cleanedAnswers.filter((a: any) => {
-              const parts = (a.answer_text || '').split('|').map((s: string) => s.trim());
-              return parts.length >= 2 && parts[0].length > 0 && parts[1].length > 0;
-            }).map((a: any) => ({ ...a, is_correct: true }));
+            cleanedAnswers = cleanedAnswers
+              .filter((a: any) => {
+                const parts = (a.answer_text || '').split('|');
+                const left = (a.left !== undefined ? a.left : parts[0] || '').trim();
+                const right = (a.right !== undefined ? a.right : parts.slice(1).join('|') || '').trim();
+                return left.length > 0 && right.length > 0;
+              })
+              .map((a: any) => {
+                const parts = (a.answer_text || '').split('|');
+                const left = (a.left !== undefined ? a.left : parts[0] || '').trim();
+                const right = (a.right !== undefined ? a.right : parts.slice(1).join('|') || '').trim();
+                return {
+                  ...a,
+                  answer_text: `${left} | ${right}`,
+                  is_correct: true,
+                };
+              });
           } else if (q.type === 'order_steps' || q.type === 'fill_blank') {
             cleanedAnswers = cleanedAnswers.filter(
               (a: any) => a.answer_text && a.answer_text.trim() !== ''
@@ -279,8 +302,8 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
             ];
           } else if (value === 'matching') {
             updatedQ.answers = [
-              { id: crypto.randomUUID(), answer_text: ' | ', is_correct: true, order_index: 0 },
-              { id: crypto.randomUUID(), answer_text: ' | ', is_correct: true, order_index: 1 },
+              { id: crypto.randomUUID(), answer_text: ' | ', left: '', right: '', is_correct: true, order_index: 0 },
+              { id: crypto.randomUUID(), answer_text: ' | ', left: '', right: '', is_correct: true, order_index: 1 },
             ];
           } else if (value === 'order_steps') {
             updatedQ.answers = [
@@ -329,14 +352,16 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
     setQuestions((prevQuestions) =>
       prevQuestions.map((q, qi) => {
         if (qi !== qIndex) return q;
-        const defaultText = q.type === 'matching' ? ' | ' : '';
+        const isMatching = q.type === 'matching';
         return {
           ...q,
           answers: [
             ...(q.answers || []),
             {
               id: crypto.randomUUID(),
-              answer_text: defaultText,
+              answer_text: isMatching ? ' | ' : '',
+              left: isMatching ? '' : undefined,
+              right: isMatching ? '' : undefined,
               is_correct: ['matching', 'order_steps', 'fill_blank'].includes(q.type) ? true : false,
               order_index: (q.answers || []).length,
             },
@@ -372,13 +397,17 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
         let updatedAnswers = (q.answers || []).map((a: any, ai: number) => {
           if (ai !== aIndex) return a;
           const currentParts = (a.answer_text || '').split('|');
-          let left = (currentParts[0] || '').trim();
-          let right = (currentParts.slice(1).join('|') || '').trim();
-          if (part === 'left') left = value;
-          if (part === 'right') right = value;
+          const currentLeft = a.left !== undefined ? a.left : (currentParts[0] ? currentParts[0].trim() : '');
+          const currentRight = a.right !== undefined ? a.right : (currentParts.length > 1 ? currentParts.slice(1).join('|').trim() : '');
+
+          const newLeft = part === 'left' ? value : currentLeft;
+          const newRight = part === 'right' ? value : currentRight;
+
           return {
             ...a,
-            answer_text: `${left} | ${right}`,
+            left: newLeft,
+            right: newRight,
+            answer_text: `${newLeft} | ${newRight}`,
             is_correct: true,
           };
         });
@@ -393,6 +422,8 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
             {
               id: crypto.randomUUID(),
               answer_text: ' | ',
+              left: '',
+              right: '',
               is_correct: true,
               order_index: updatedAnswers.length,
             },
@@ -458,9 +489,12 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
         if (qi !== qIndex) return q;
         const newAnswers = q.answers.filter((_: any, ai: number) => ai !== aIndex);
         if (newAnswers.length === 0 && q.type !== 'open_text') {
+          const isMatching = q.type === 'matching';
           newAnswers.push({
             id: crypto.randomUUID(),
-            answer_text: q.type === 'matching' ? ' | ' : '',
+            answer_text: isMatching ? ' | ' : '',
+            left: isMatching ? '' : undefined,
+            right: isMatching ? '' : undefined,
             is_correct: ['matching', 'order_steps', 'fill_blank'].includes(q.type) ? true : false,
             order_index: 0,
           });
@@ -584,8 +618,8 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                   <div className="space-y-2.5">
                     {q.answers.map((a: any, aIndex: number) => {
                       const parts = (a.answer_text || '').split('|');
-                      const left = parts[0] ? parts[0].trim() : '';
-                      const right = parts.length > 1 ? parts.slice(1).join('|').trim() : '';
+                      const left = a.left !== undefined ? a.left : (parts[0] ? parts[0].trim() : '');
+                      const right = a.right !== undefined ? a.right : (parts.length > 1 ? parts.slice(1).join('|').trim() : '');
 
                       return (
                         <div key={a.id} className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 bg-background border rounded-lg shadow-xs">

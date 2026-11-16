@@ -166,3 +166,93 @@ export async function createFullStudentAction(formData: FormData) {
   revalidatePath('/home/admin-users');
   return { success: true, studentName: `${firstName} ${lastName}`, documentId, email };
 }
+
+/**
+ * Crea un profesor con sus datos personales
+ */
+export async function createTeacherAction(formData: FormData) {
+  await requireUserInServerComponent();
+  const adminClient = getSupabaseServerAdminClient();
+
+  const firstName = normalizeName(formData.get('firstName') as string);
+  const lastName = normalizeName(formData.get('lastName') as string);
+  const documentId = (formData.get('documentId') as string)?.trim();
+  const birthDate = formData.get('birthDate') as string;
+  const phone = (formData.get('phone') as string)?.trim();
+  const church = (formData.get('church') as string)?.trim();
+  const city = (formData.get('city') as string)?.trim();
+  const email = (formData.get('email') as string)?.trim().toLowerCase();
+  const customPassword = (formData.get('password') as string)?.trim();
+  const password = customPassword || documentId; // Contraseña por defecto es el documento
+
+  if (!firstName || !lastName || !documentId || !birthDate || !phone || !church || !city || !email) {
+    throw new Error('Todos los campos son obligatorios');
+  }
+
+  // 1. Check document unique
+  const docAvailable = await checkDocumentAvailabilityAction(documentId);
+  if (!docAvailable) {
+    throw new Error('Ya existe un usuario registrado con este número de identificación.');
+  }
+
+  if (password.length < 6) {
+    throw new Error('La contraseña (o número de identificación usado como contraseña) debe tener al menos 6 caracteres.');
+  }
+
+  // 2. Create Auth User
+  const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      first_name: firstName,
+      last_name: lastName,
+      name: `${firstName} ${lastName}`,
+    },
+  });
+
+  if (authError) {
+    throw new Error(`Error al crear el usuario (Auth): ${authError.message}`);
+  }
+
+  const userId = authUser.user.id;
+
+  // 3. Assign role 'profesor'
+  const { error: roleError } = await adminClient
+    .from('user_roles')
+    .insert({ id: userId, role: 'profesor' });
+
+  if (roleError) {
+    await adminClient.from('accounts').delete().eq('id', userId);
+    await adminClient.auth.admin.deleteUser(userId);
+    throw new Error(`Error asignando el rol de profesor: ${roleError.message}`);
+  }
+
+  // 4. Save personal profile in students table
+  const { error: profileError } = await adminClient
+    .from('students')
+    .insert({
+      user_id: userId,
+      document_id: documentId,
+      first_name: firstName,
+      last_name: lastName,
+      birth_date: birthDate,
+      phone,
+      church,
+      city,
+      institutional_email: email,
+      status: 'active',
+      entry_date: new Date().toISOString().split('T')[0],
+      modality: 'presencial',
+    });
+
+  if (profileError) {
+    await adminClient.from('user_roles').delete().eq('id', userId);
+    await adminClient.from('accounts').delete().eq('id', userId);
+    await adminClient.auth.admin.deleteUser(userId);
+    throw new Error(`Error guardando datos personales del profesor: ${profileError.message}`);
+  }
+
+  revalidatePath('/home/admin-users');
+  return { success: true, teacherName: `${firstName} ${lastName}`, documentId, email };
+}

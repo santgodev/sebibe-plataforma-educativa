@@ -98,10 +98,10 @@ export function CohortStudentsList({
                 <SelectValue placeholder="Semestre" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todos los semestres</SelectItem>
                 {availableSemesters.map((sem) => (
                   <SelectItem key={sem} value={sem.toString()}>
-                    Semestre {sem}
+                    {sem.toString().toLowerCase().includes('semestre') ? sem : `Semestre ${sem}`}
                   </SelectItem>
                 ))}
               </SelectContent>

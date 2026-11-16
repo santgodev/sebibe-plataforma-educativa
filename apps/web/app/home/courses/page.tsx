@@ -239,8 +239,14 @@ export default async function CoursesCatalogPage() {
                           </div>
                         )}
                         <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                          <span className="bg-background/90 backdrop-blur-xs text-foreground px-2.5 py-1 rounded-md text-[11px] font-bold shadow-xs capitalize">
-                            {course.level?.replace('_', ' ') || 'General'}
+                          <span className="bg-background/90 backdrop-blur-xs text-foreground px-2.5 py-1 rounded-md text-[11px] font-bold shadow-xs">
+                            {course.level === 'beginner'
+                              ? 'Básico'
+                              : course.level === 'intermediate'
+                              ? 'Intermedio'
+                              : course.level === 'advanced'
+                              ? 'Avanzado'
+                              : 'Todos los niveles'}
                           </span>
                         </div>
                         <div className="absolute top-3 right-3">
