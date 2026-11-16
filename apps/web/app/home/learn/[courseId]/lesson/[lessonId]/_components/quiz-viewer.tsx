@@ -323,7 +323,7 @@ function FillBlankViewer({
                   value={val}
                   onChange={(e) => handleBlankChange(idx, e.target.value)}
                   disabled={!!result}
-                  className={`w-full text-sm sm:text-base py-5 font-medium transition-all ${
+                  className={`w-full text-sm sm:text-base py-5 font-medium transition-all select-text ${
                     result
                       ? 'border-amber-500/40 bg-amber-50/20 text-foreground'
                       : 'bg-background'
@@ -691,7 +691,7 @@ export function QuizViewer({
     setIsStarted(true);
   };
 
-  // Escuchar eventos de cambio de ventana, visibilidad y pantalla completa
+  // Escuchar eventos de cambio de ventana, visibilidad, pantalla completa y bloqueo de copiado
   useEffect(() => {
     if (!isStarted || result || isDisqualified) return;
 
@@ -715,14 +715,68 @@ export function QuizViewer({
       }
     };
 
+    let lastCopyWarn = 0;
+    const warnNoCopy = () => {
+      const now = Date.now();
+      if (now - lastCopyWarn > 2500) {
+        lastCopyWarn = now;
+        toast.warning('No está permitido copiar la información del cuestionario.', {
+          duration: 3000,
+        });
+      }
+    };
+
+    const handleCopyOrCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      warnNoCopy();
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        // Bloquear copiar, cortar, imprimir, ver código fuente y seleccionar todo fuera de inputs
+        if (key === 'c' || key === 'x' || key === 'u' || key === 'p') {
+          e.preventDefault();
+          if (key === 'c' || key === 'x') warnNoCopy();
+        } else if (key === 'a' && !isInput) {
+          e.preventDefault();
+        } else if (e.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
+          e.preventDefault();
+        }
+      } else if (e.key === 'F12') {
+        e.preventDefault();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('copy', handleCopyOrCut);
+    document.addEventListener('cut', handleCopyOrCut);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('copy', handleCopyOrCut);
+      document.removeEventListener('cut', handleCopyOrCut);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isStarted, result, isDisqualified, handleSecurityViolation]);
 
@@ -916,7 +970,24 @@ export function QuizViewer({
   }
 
   return (
-    <div className="bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-3.5 sm:p-6 md:p-8 shadow-sm">
+    <div
+      className={`bg-background text-foreground mx-auto max-w-3xl rounded-xl border p-3.5 sm:p-6 md:p-8 shadow-sm ${
+        !result && !isDisqualified ? 'select-none print:hidden' : ''
+      }`}
+      style={!result && !isDisqualified ? { WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } : undefined}
+      onCopy={(e) => {
+        if (!result && !isDisqualified) e.preventDefault();
+      }}
+      onCut={(e) => {
+        if (!result && !isDisqualified) e.preventDefault();
+      }}
+      onContextMenu={(e) => {
+        if (!result && !isDisqualified) e.preventDefault();
+      }}
+      onDragStart={(e) => {
+        if (!result && !isDisqualified) e.preventDefault();
+      }}
+    >
       <div className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b pb-4">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
@@ -1054,7 +1125,7 @@ export function QuizViewer({
                       value={answers[q.id] || ''} 
                       onChange={e => handleSelect(q.id, e.target.value)}
                       disabled={!!result}
-                      className="min-h-[130px] w-full max-w-2xl text-sm bg-background border-input leading-relaxed"
+                      className="min-h-[130px] w-full max-w-2xl text-sm bg-background border-input leading-relaxed select-text"
                     />
                   </div>
                 )}
