@@ -23,35 +23,3 @@ export const ReorderLessonsSchema = z.object({
     }),
   ),
 });
-
-export const CreateLessonBlockSchema = z.object({
-  lesson_id: z.string().uuid(),
-  type: z.enum([
-    'video',
-    'text',
-    'image',
-    'quote',
-    'pdf',
-    'activity',
-    'question',
-    'button',
-    'download',
-  ]),
-  content: z.any(),
-  order_index: z.number().int().min(0),
-});
-
-export const UpdateLessonBlockSchema = CreateLessonBlockSchema.partial().extend(
-  {
-    id: z.string().uuid(),
-  },
-);
-
-export const ReorderLessonBlocksSchema = z.object({
-  blocks: z.array(
-    z.object({
-      id: z.string().uuid(),
-      order_index: z.number().int().min(0),
-    }),
-  ),
-});

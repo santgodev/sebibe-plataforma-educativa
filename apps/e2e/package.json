@@ -6,7 +6,11 @@
   "scripts": {
     "report": "playwright show-report",
     "test": "playwright test --max-failures=1",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test tests/smoke/ --workers=1 --reporter=list",
+    "test:smoke:ui": "playwright test tests/smoke/ --ui",
+    "test:evaluation": "playwright test tests/smoke/student-evaluation.spec.ts --workers=1 --reporter=list",
+    "test:evaluation:ui": "playwright test tests/smoke/student-evaluation.spec.ts --ui"
   },
   "keywords": [],
   "author": "",

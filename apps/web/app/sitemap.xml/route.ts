@@ -24,7 +24,6 @@ export async function GET() {
 function getPaths() {
   const paths = [
     '/',
-    '/faq',
     '/cookie-policy',
     '/terms-of-service',
     '/privacy-policy',

@@ -16,8 +16,8 @@ import {
   AlertDialogTitle,
 } from '@kit/ui/alert-dialog';
 
-// Configuración de tiempos (5 minutos por defecto, con aviso 60 segundos antes)
-const DEFAULT_TIMEOUT_MINUTES = 5;
+// Configuración de tiempos (24 horas por defecto, con aviso 60 segundos antes)
+const DEFAULT_TIMEOUT_MINUTES = 24 * 60;
 const WARNING_SECONDS = 60;
 
 const STORAGE_LAST_ACTIVITY_KEY = 'sebibe_last_activity';

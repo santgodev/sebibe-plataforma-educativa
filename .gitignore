@@ -52,3 +52,10 @@ scratch/
 .contentlayer/
 
 santgo_avatar.jpeg
+
+# archives & artifacts
+*.zip
+apps/e2e/test-results/
+apps/e2e/playwright-report/
+apps/web/supabase/.temp/
+*'node_modules*
