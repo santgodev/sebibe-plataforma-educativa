@@ -14,6 +14,8 @@ import {
   UpdateModuleSchema,
 } from '../../schemas/module.schema';
 import { ModuleService } from '../services/module.service';
+import { ProgressService } from '../services/progress.service';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 export const createModuleAction = enhanceAction(
   async (data) => {
@@ -24,6 +26,14 @@ export const createModuleAction = enhanceAction(
     const service = new ModuleService(client);
 
     const module = await service.createModule(data);
+
+    try {
+      const progressService = new ProgressService(client);
+      await progressService.recalculateCourseProgressForAllStudents(data.course_id);
+      revalidatePath('/home/courses');
+    } catch (err) {
+      console.error('Error recalculating course progress on module create:', err);
+    }
 
     revalidatePath(`/home/admin-courses/${data.course_id}`);
     return module;
@@ -77,7 +87,31 @@ export const deleteModuleAction = enhanceAction(
     await requireUser(client);
     const service = new ModuleService(client);
 
+    let courseId: string | null = null;
+    try {
+      const adminClient = getSupabaseServerAdminClient();
+      const { data: mod } = await adminClient
+        .from('course_modules')
+        .select('course_id')
+        .eq('id', id)
+        .maybeSingle();
+      courseId = mod?.course_id || null;
+    } catch {
+      // ignore lookup error
+    }
+
     await service.deleteModule(id);
+
+    if (courseId) {
+      try {
+        const progressService = new ProgressService(client);
+        await progressService.recalculateCourseProgressForAllStudents(courseId);
+        revalidatePath('/home/courses');
+      } catch (err) {
+        console.error('Error recalculating course progress on module delete:', err);
+      }
+    }
+
     return { success: true };
   },
   {

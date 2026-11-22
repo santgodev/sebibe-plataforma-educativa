@@ -15,6 +15,8 @@ import {
   UpdateLessonSchema,
 } from '../../schemas/lesson.schema';
 import { LessonService } from '../services/lesson.service';
+import { ProgressService } from '../services/progress.service';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 export const createLessonAction = enhanceAction(
   async (data) => {
@@ -26,7 +28,23 @@ export const createLessonAction = enhanceAction(
 
     const lesson = await service.createLesson(data);
 
-    // Revalidation usually happens at the course level in the UI
+    // Recalcular progreso de la materia para los estudiantes inscritos
+    try {
+      const adminClient = getSupabaseServerAdminClient();
+      const { data: mod } = await adminClient
+        .from('course_modules')
+        .select('course_id')
+        .eq('id', data.module_id)
+        .maybeSingle();
+      if (mod?.course_id) {
+        const progressService = new ProgressService(client);
+        await progressService.recalculateCourseProgressForAllStudents(mod.course_id);
+        revalidatePath('/home/courses');
+      }
+    } catch (err) {
+      console.error('Error recalculating course progress on lesson create:', err);
+    }
+
     return lesson;
   },
   {
@@ -83,7 +101,31 @@ export const deleteLessonAction = enhanceAction(
     await requireUser(client);
     const service = new LessonService(client);
 
+    let courseId: string | null = null;
+    try {
+      const adminClient = getSupabaseServerAdminClient();
+      const { data: lessonRow } = await adminClient
+        .from('lessons')
+        .select('course_modules(course_id)')
+        .eq('id', id)
+        .maybeSingle();
+      courseId = (lessonRow as any)?.course_modules?.course_id || null;
+    } catch {
+      // ignore lookup error
+    }
+
     await service.deleteLesson(id);
+
+    if (courseId) {
+      try {
+        const progressService = new ProgressService(client);
+        await progressService.recalculateCourseProgressForAllStudents(courseId);
+        revalidatePath('/home/courses');
+      } catch (err) {
+        console.error('Error recalculating course progress on lesson delete:', err);
+      }
+    }
+
     return { success: true };
   },
   {

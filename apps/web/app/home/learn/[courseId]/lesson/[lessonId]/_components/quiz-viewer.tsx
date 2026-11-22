@@ -14,6 +14,7 @@ import {
   Clock,
   HelpCircle,
   PenLine,
+  RotateCcw,
   Shuffle,
   Split,
   XCircle,
@@ -123,7 +124,7 @@ function MatchingViewer({
           return (
             <div
               key={pair.id}
-              className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 ${
+              className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                 result
                   ? isCorrect
                     ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
@@ -131,29 +132,29 @@ function MatchingViewer({
                   : 'bg-background hover:border-primary/40 shadow-xs'
               }`}
             >
-              {/* Concept (Left Column) */}
-              <div className="flex items-center gap-2.5 sm:w-1/2">
-                <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5 shrink-0">
-                  {index + 1}
-                </Badge>
-                <span className="font-semibold text-foreground text-sm leading-tight">
+              {/* Concepto completo y Badge a un lado (igual que tarjetas de orden) */}
+              <div className="flex items-start sm:items-center justify-between gap-3 sm:w-1/2 min-w-0">
+                <span className="font-medium text-foreground text-sm sm:text-base leading-snug break-words flex-1">
                   {pair.concept}
                 </span>
+                <Badge variant="secondary" className="font-mono text-xs px-2.5 py-1 shrink-0 font-bold">
+                  #{index + 1}
+                </Badge>
               </div>
 
               <div className="items-center justify-center text-muted-foreground shrink-0 hidden sm:flex">
                 <ArrowRight className="w-4 h-4" />
               </div>
 
-              {/* Match Selector (Right Column) */}
-              <div className="sm:w-1/2">
+              {/* Match Selector */}
+              <div className="sm:w-1/2 w-full pt-2 border-t sm:border-t-0 sm:pt-0">
                 <Select
                   value={selectedValue}
                   onValueChange={(val) => onSelectMatch(pair.id, val)}
                   disabled={!!result}
                 >
                   <SelectTrigger
-                    className={`w-full h-auto min-h-9 py-2 text-left whitespace-normal [&>span]:line-clamp-none [&>span]:whitespace-normal text-sm font-medium ${
+                    className={`w-full h-auto min-h-10 py-2 text-left whitespace-normal [&>span]:line-clamp-none [&>span]:whitespace-normal text-sm font-medium ${
                       result
                         ? isCorrect
                           ? 'border-emerald-500 text-emerald-800 dark:text-emerald-300'
@@ -173,7 +174,7 @@ function MatchingViewer({
                 </Select>
 
                 {result && isIncorrect && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 font-medium break-words">
                     ✓ Correcta: {pair.definition}
                   </p>
                 )}
@@ -303,17 +304,17 @@ function FillBlankViewer({
                     : 'border-muted bg-background hover:border-primary/30'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="font-mono text-xs px-2 py-0.5 font-bold">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="font-mono text-xs px-2.5 py-0.5 font-bold shrink-0">
                       Espacio #{idx + 1}
                     </Badge>
                     <span className="text-xs text-muted-foreground font-medium">
-                      Respuesta abierta para el espacio #{idx + 1}
+                      Respuesta abierta
                     </span>
                   </div>
                   {isFilled && !result && (
-                    <span className="text-[11px] font-semibold text-primary flex items-center gap-1">
+                    <span className="text-[11px] font-semibold text-primary flex items-center gap-1 shrink-0">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Completado
                     </span>
                   )}
@@ -697,6 +698,13 @@ export function QuizViewer({
     setIsStarted(true);
   };
 
+  // Reiniciar y repetir el cuestionario cuando los intentos son ilimitados
+  const handleRepeatQuiz = async () => {
+    setAnswers({});
+    setResult(null);
+    await startQuiz();
+  };
+
   // Temporizador en tiempo real (cuenta regresiva por segundo)
   const hasActiveTimer = isStarted && !result && !isDisqualified && timeLeftSeconds !== null && timeLeftSeconds > 0;
 
@@ -935,20 +943,51 @@ export function QuizViewer({
         {(() => {
           const hasPassed = pastAttempts.some(a => (a.score || 0) >= (activity.passing_score || 0));
           const hasPending = pastAttempts.some(a => a.status === 'needs_grading');
-          const reachedMaxAttempts = activity.max_attempts && pastAttempts.length >= activity.max_attempts;
+          const isUnlimitedAttempts = !activity.max_attempts || activity.max_attempts === 0;
+          const reachedMaxAttempts = !isUnlimitedAttempts && pastAttempts.length >= activity.max_attempts;
           
           if (hasPassed) {
             return (
-              <div className="text-primary font-semibold bg-primary/10 p-4 rounded-lg inline-block border border-primary/20">
-                ¡Ya has aprobado este cuestionario!
+              <div className="space-y-4">
+                <div className="text-primary font-semibold bg-primary/10 p-4 rounded-lg inline-block border border-primary/20">
+                  ¡Ya has aprobado este cuestionario!
+                </div>
+                {isUnlimitedAttempts && !hasPending && (
+                  <div>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:w-auto px-6 sm:px-10 gap-2 font-semibold"
+                      onClick={startQuiz}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span>Repetir Cuestionario</span>
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           }
 
           if (hasPending) {
             return (
-              <div className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/40 p-4 rounded-lg inline-block border border-amber-200 dark:border-amber-800">
-                Tu entrega fue recibida y está a la espera de calificación del profesor.
+              <div className="space-y-4">
+                <div className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/40 p-4 rounded-lg inline-block border border-amber-200 dark:border-amber-800">
+                  Tu entrega fue recibida y está a la espera de calificación del profesor.
+                </div>
+                {isUnlimitedAttempts && (
+                  <div>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:w-auto px-6 sm:px-10 gap-2 font-semibold"
+                      onClick={startQuiz}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span>Repetir Cuestionario</span>
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           }
@@ -1100,27 +1139,29 @@ export function QuizViewer({
                   : 'bg-card'
               }`}
             >
-              <div className="flex gap-2.5 sm:gap-3">
-                <span className="text-muted-foreground font-bold text-sm sm:text-base">{idx + 1}.</span>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-foreground text-base sm:text-lg leading-snug sm:leading-relaxed font-medium">
-                    {q.type === 'fill_blank' && q.question_text?.includes('[___]')
-                      ? 'Completa los espacios en blanco de la siguiente frase:'
-                      : q.question_text}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs text-muted-foreground">Valor: {q.points || 1} puntos</p>
-                    {isManualGradingType && (
-                      <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900">
-                        Calificación manual
-                      </span>
-                    )}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
+                <div className="flex gap-2 sm:gap-3 flex-1 min-w-0">
+                  <span className="text-muted-foreground font-bold text-sm sm:text-base shrink-0">{idx + 1}.</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-foreground text-base sm:text-lg leading-snug sm:leading-relaxed font-medium break-words">
+                      {q.type === 'fill_blank' && q.question_text?.includes('[___]')
+                        ? 'Completa los espacios en blanco de la siguiente frase:'
+                        : q.question_text}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <p className="text-xs text-muted-foreground">Valor: {q.points || 1} puntos</p>
+                      {isManualGradingType && (
+                        <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900">
+                          Calificación manual
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {result && (
-                  <div>
+                  <div className="shrink-0 self-start">
                     {isManualGradingType ? (
-                      <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-300 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-300 dark:border-amber-800">
                         <Clock className="w-3.5 h-3.5" /> Por calificar
                       </span>
                     ) : isCorrect ? (
@@ -1145,12 +1186,12 @@ export function QuizViewer({
                     <div
                       key={opt.id}
                       onClick={() => handleSelect(q.id, opt.id)}
-                      className={`flex items-center gap-3 rounded-xl border p-3 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
+                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
                     >
-                      <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary' : 'border-muted-foreground'}`}>
+                      <div className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary' : 'border-muted-foreground'}`}>
                         {isSelected && <div className="bg-primary h-2.5 w-2.5 rounded-full" />}
                       </div>
-                      <span className="text-foreground leading-snug">{opt.answer_text}</span>
+                      <span className="text-foreground leading-snug break-words flex-1 min-w-0">{opt.answer_text}</span>
                     </div>
                   );
                 })}
@@ -1166,12 +1207,12 @@ export function QuizViewer({
                     <div
                       key={opt.id}
                       onClick={() => handleSelect(q.id, opt.id, true)}
-                      className={`flex items-center gap-3 rounded-xl border p-3 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
+                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:p-4 text-sm sm:text-base transition-all ${optionStyle}`}
                     >
-                      <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                      <div className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
                         {isSelected && <CheckCircle2 className="w-4 h-4 text-primary-foreground" />}
                       </div>
-                      <span className="text-foreground leading-snug">{opt.answer_text}</span>
+                      <span className="text-foreground leading-snug break-words flex-1 min-w-0">{opt.answer_text}</span>
                     </div>
                   );
                 })}
@@ -1230,7 +1271,7 @@ export function QuizViewer({
               </div>
 
               {result && feedback?.feedbackText && (
-                <div className="mt-4 bg-muted/50 p-4 rounded-lg text-sm pl-8">
+                <div className="mt-3 sm:mt-4 bg-muted/50 p-3.5 sm:p-4 rounded-xl text-xs sm:text-sm sm:ml-7 break-words">
                   <strong className="block mb-1">Retroalimentación:</strong>
                   {feedback.feedbackText}
                 </div>
@@ -1275,20 +1316,32 @@ export function QuizViewer({
                 </p>
               </>
             )}
-            <Button
-              variant="outline"
-              onClick={() => {
-                window.location.reload();
-              }}
-            >
-              Volver al inicio
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              {(!activity.max_attempts || activity.max_attempts === 0) && (
+                <Button
+                  className="w-full sm:w-auto gap-2 font-semibold"
+                  onClick={handleRepeatQuiz}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Repetir Cuestionario</span>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  window.location.reload();
+                }}
+              >
+                Volver al inicio
+              </Button>
+            </div>
           </div>
         )}
       </div>
       {/* Modal de Advertencia por cambio de ventana (Strike 1) */}
       <AlertDialog open={isSecurityModalOpen && isStarted && !isDisqualified}>
-        <AlertDialogContent className="sm:max-w-[480px] border-amber-300 dark:border-amber-800 bg-card shadow-2xl">
+        <AlertDialogContent className="w-[95vw] sm:max-w-[480px] p-4 sm:p-6 border-amber-300 dark:border-amber-800 bg-card shadow-2xl">
           <AlertDialogHeader className="flex flex-col items-center text-center space-y-3">
             <div className="h-14 w-14 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center animate-bounce">
               <AlertTriangle className="h-7 w-7" />

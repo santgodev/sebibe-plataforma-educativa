@@ -77,4 +77,117 @@ export class ProgressService {
 
     return { percentage, status };
   }
+
+  /**
+   * Recalcula y sincroniza `course_progress` en la base de datos para todos los
+   * estudiantes que tienen progreso registrado en una materia.
+   */
+  async recalculateCourseProgressForAllStudents(courseId: string) {
+    if (!courseId) return;
+
+    const { getSupabaseServerAdminClient } = await import('@kit/supabase/server-admin-client');
+    const adminClient = getSupabaseServerAdminClient();
+
+    // 1. Obtener todos los módulos y lecciones vigentes de la materia
+    const { data: modules } = await adminClient
+      .from('course_modules')
+      .select('id, lessons(id)')
+      .eq('course_id', courseId);
+
+    const courseLessonIds: string[] = [];
+    (modules || []).forEach((mod: any) => {
+      (mod.lessons || []).forEach((lesson: any) => {
+        if (lesson?.id) courseLessonIds.push(lesson.id);
+      });
+    });
+
+    const totalLessons = courseLessonIds.length;
+
+    // 2. Obtener todos los registros de progreso en esta materia
+    const { data: existingCourseProgress } = await adminClient
+      .from('course_progress')
+      .select('student_id')
+      .eq('course_id', courseId);
+
+    if (!existingCourseProgress || existingCourseProgress.length === 0) {
+      return;
+    }
+
+    if (totalLessons === 0) {
+      await adminClient
+        .from('course_progress')
+        .update({
+          percentage_completed: 0,
+          status: 'in_progress',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('course_id', courseId);
+      return;
+    }
+
+    // 3. Contar lecciones completadas por estudiante dentro de esta materia
+    const { data: completedRows } = await adminClient
+      .from('lesson_progress')
+      .select('student_id, lesson_id')
+      .eq('is_completed', true)
+      .in('lesson_id', courseLessonIds);
+
+    const completedByStudent = new Map<string, number>();
+    (completedRows || []).forEach((row: any) => {
+      completedByStudent.set(
+        row.student_id,
+        (completedByStudent.get(row.student_id) || 0) + 1,
+      );
+    });
+
+    // 4. Actualizar `course_progress` de cada estudiante
+    for (const cp of existingCourseProgress) {
+      const completedCount = completedByStudent.get(cp.student_id) || 0;
+      const percentage = Math.min(Math.round((completedCount / totalLessons) * 100), 100);
+      const status = completedCount >= totalLessons ? 'completed' : 'in_progress';
+
+      await adminClient
+        .from('course_progress')
+        .update({
+          percentage_completed: percentage,
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('course_id', courseId)
+        .eq('student_id', cp.student_id);
+    }
+  }
+
+  /**
+   * Cuando se agrega un nuevo cuestionario/actividad a una lección existente,
+   * reinicia el estado de completado de esa lección y recalcula el progreso de la materia.
+   */
+  async handleNewQuizInLesson(lessonId: string, courseId?: string | null) {
+    const { getSupabaseServerAdminClient } = await import('@kit/supabase/server-admin-client');
+    const adminClient = getSupabaseServerAdminClient();
+
+    // Desmarcar la lección como completada para que refleje la nueva evaluación pendiente
+    await adminClient
+      .from('lesson_progress')
+      .update({
+        is_completed: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('lesson_id', lessonId)
+      .eq('is_completed', true);
+
+    let resolvedCourseId = courseId;
+    if (!resolvedCourseId) {
+      const { data: lessonRow } = await adminClient
+        .from('lessons')
+        .select('course_modules(course_id)')
+        .eq('id', lessonId)
+        .maybeSingle();
+      resolvedCourseId = (lessonRow as any)?.course_modules?.course_id || null;
+    }
+
+    if (resolvedCourseId) {
+      await this.recalculateCourseProgressForAllStudents(resolvedCourseId);
+    }
+  }
 }

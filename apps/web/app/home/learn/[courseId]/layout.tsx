@@ -44,21 +44,27 @@ export default async function LearningLayout({
     courseId,
   );
 
-  const { data: progressData } = await client
-    .from('course_progress')
-    .select('percentage_completed')
-    .eq('student_id', user.id)
-    .eq('course_id', courseId)
-    .maybeSingle();
-  const progressPercentage = progressData?.percentage_completed || 0;
-
-  // Sort modules and lessons
+  // Sort modules and lessons and calculate real-time progress
   const modules = course.course_modules.sort(
     (a, b) => a.order_index - b.order_index,
   );
+  let totalLessons = 0;
+  let completedLessonsCount = 0;
   modules.forEach((m) => {
-    if (m.lessons) m.lessons.sort((a, b) => a.order_index - b.order_index);
+    if (m.lessons) {
+      m.lessons.sort((a, b) => a.order_index - b.order_index);
+      m.lessons.forEach((l: any) => {
+        totalLessons++;
+        if (completedLessonsSet.has(l.id)) {
+          completedLessonsCount++;
+        }
+      });
+    }
   });
+  const progressPercentage =
+    totalLessons > 0
+      ? Math.min(Math.round((completedLessonsCount / totalLessons) * 100), 100)
+      : 0;
 
   return (
     <div className="bg-background flex h-dvh md:h-[calc(100dvh-4rem)] flex-col overflow-hidden md:flex-row -mx-4 lg:mx-0">

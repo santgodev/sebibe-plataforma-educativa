@@ -9,6 +9,7 @@ import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client'
 
 import { CreateActivitySchema, UpdateActivitySchema } from '../../schemas/activity.schema';
 import { ActivityService } from '../services/activity.service';
+import { ProgressService } from '../services/progress.service';
 
 export const createActivityAction = enhanceAction(
   async (data) => {
@@ -21,6 +22,20 @@ export const createActivityAction = enhanceAction(
     const { questions, ...activityData } = data;
 
     const activity = await service.createActivity(activityData, questions);
+
+    // Si se agregó un cuestionario/actividad a una lección o curso, actualizar el progreso
+    try {
+      const progressService = new ProgressService(client);
+      if (activityData.lesson_id) {
+        await progressService.handleNewQuizInLesson(activityData.lesson_id, activityData.course_id);
+        revalidatePath('/home/courses');
+      } else if (activityData.course_id) {
+        await progressService.recalculateCourseProgressForAllStudents(activityData.course_id);
+        revalidatePath('/home/courses');
+      }
+    } catch (err) {
+      console.error('Error updating course progress on activity create:', err);
+    }
 
     return activity;
   },

@@ -152,15 +152,11 @@ export default async function CoursesCatalogPage() {
     });
 
     const cp = progressList.find((p) => p.course_id === course.id);
-    let percentage = cp?.percentage_completed ?? 0;
-    if (totalLessons > 0 && percentage === 0 && completedLessons > 0) {
-      percentage = Math.round((completedLessons / totalLessons) * 100);
-    }
-    if (totalLessons > 0 && completedLessons >= totalLessons) {
-      percentage = 100;
-    }
-
-    const isCompleted = cp?.status === 'completed' || percentage >= 100;
+    const percentage =
+      totalLessons > 0
+        ? Math.min(Math.round((completedLessons / totalLessons) * 100), 100)
+        : 0;
+    const isCompleted = totalLessons > 0 && completedLessons >= totalLessons;
 
     return {
       ...course,

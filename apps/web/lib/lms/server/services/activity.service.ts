@@ -73,23 +73,94 @@ export class ActivityService {
     return this.repository.delete(id);
   }
 
+  private isQuestionAnswerCorrect(question: any, studentAnswer: any): boolean {
+    if (!studentAnswer) return false;
+
+    switch (question.type) {
+      case 'single_choice':
+      case 'true_false': {
+        const correctAns = question.activity_answers.find((a: any) => a.is_correct);
+        return correctAns?.id === studentAnswer;
+      }
+      case 'multiple_choice': {
+        const correctIds = question.activity_answers
+          .filter((a: any) => a.is_correct)
+          .map((a: any) => a.id)
+          .sort();
+        const studentIds = Array.isArray(studentAnswer) ? [...studentAnswer].sort() : [];
+        return JSON.stringify(correctIds) === JSON.stringify(studentIds);
+      }
+      case 'matching': {
+        const normalize = (str: string) =>
+          str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+
+        if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+          let allPairsCorrect = true;
+          let pairCount = 0;
+          for (const a of question.activity_answers) {
+            const parts = (a.answer_text || '').split('|').map((s: string) => s.trim());
+            if (parts.length >= 2) {
+              pairCount++;
+              const expectedDef = parts.slice(1).join('|').trim();
+              const studentVal = String(studentAnswer[a.id] || studentAnswer[parts[0]] || '').trim();
+              if (normalize(studentVal) !== normalize(expectedDef)) {
+                allPairsCorrect = false;
+                break;
+              }
+            }
+          }
+          return allPairsCorrect && pairCount > 0;
+        }
+        return false;
+      }
+      case 'order_steps': {
+        const sortedAnswers = [...question.activity_answers].sort(
+          (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)
+        );
+        const correctOrderIds = sortedAnswers.map((a: any) => a.id);
+        const correctOrderTexts = sortedAnswers.map((a: any) => (a.answer_text || '').trim().toLowerCase());
+        if (Array.isArray(studentAnswer)) {
+          const parsedStudentIds = studentAnswer.map((s: any) =>
+            typeof s === 'object' && s !== null && s.id ? s.id : String(s || '')
+          );
+          const isIdMatch = JSON.stringify(correctOrderIds) === JSON.stringify(parsedStudentIds);
+          const isTextMatch =
+            JSON.stringify(correctOrderTexts) ===
+            JSON.stringify(studentAnswer.map((s: any) => String(s || '').trim().toLowerCase()));
+          return isIdMatch || isTextMatch;
+        }
+        return false;
+      }
+      case 'fill_blank':
+      case 'open_text':
+      default:
+        return false;
+    }
+  }
+
   async evaluateQuiz(activityId: string, studentId: string, submittedAnswers: Record<string, any>) {
     const fullActivity = await this.repository.getFullActivity(activityId);
     
     const { getSupabaseServerAdminClient } = await import('@kit/supabase/server-admin-client');
     const adminClient = getSupabaseServerAdminClient();
 
-    // Get current attempt count
-    const { count } = await adminClient
+    // Get previous attempts and total count
+    const { data: previousAttempts, count } = await adminClient
       .from('activity_attempts')
-      .select('*', { count: 'exact', head: true })
+      .select('answers_json', { count: 'exact' })
       .eq('activity_id', activityId)
-      .eq('student_id', studentId);
+      .eq('student_id', studentId)
+      .order('completed_at', { ascending: false });
       
     const currentAttempts = count || 0;
+    const isUnlimited = !fullActivity.max_attempts || fullActivity.max_attempts === 0;
 
     // Check max attempts
-    if (fullActivity.max_attempts) {
+    if (!isUnlimited) {
       if (currentAttempts >= fullActivity.max_attempts) {
         throw new Error('Maximum attempts reached');
       }
@@ -97,91 +168,45 @@ export class ActivityService {
     
     const attemptNumber = currentAttempts + 1;
 
+    // Si los intentos son ilimitados:
+    // - Para preguntas abiertas / de completar espacios: guardar siempre la última respuesta
+    // - Para el resto del cuestionario: conservar las respuestas con más aciertos
+    const finalAnswers: Record<string, any> = { ...submittedAnswers };
+    if (isUnlimited && previousAttempts && previousAttempts.length > 0) {
+      for (const question of fullActivity.activity_questions) {
+        const isOpenQuestion = question.type === 'open_text' || question.type === 'fill_blank';
+        if (isOpenQuestion) {
+          finalAnswers[question.id] = submittedAnswers[question.id];
+          continue;
+        }
+
+        const currentIsCorrect = this.isQuestionAnswerCorrect(question, submittedAnswers[question.id]);
+        if (!currentIsCorrect) {
+          for (const prev of previousAttempts) {
+            const prevAns = (prev.answers_json as Record<string, any> | null)?.[question.id];
+            if (prevAns && this.isQuestionAnswerCorrect(question, prevAns)) {
+              finalAnswers[question.id] = prevAns;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     let totalPoints = 0;
     let earnedPoints = 0;
     const feedback: Record<string, { isCorrect: boolean, feedbackText?: string | null }> = {};
 
-    const hasOpenText = fullActivity.activity_questions.some((q: any) => q.type === 'open_text');
-
     for (const question of fullActivity.activity_questions) {
       totalPoints += question.points || 1;
-      const studentAnswer = submittedAnswers[question.id];
-      let isCorrect = false;
+      const studentAnswer = finalAnswers[question.id];
 
       if (!studentAnswer) {
         feedback[question.id] = { isCorrect: false, feedbackText: question.feedback_text };
         continue;
       }
 
-      switch (question.type) {
-        case 'single_choice':
-        case 'true_false':
-          const correctAns = question.activity_answers.find((a: any) => a.is_correct);
-          isCorrect = correctAns?.id === studentAnswer;
-          break;
-        case 'multiple_choice':
-          const correctIds = question.activity_answers.filter((a: any) => a.is_correct).map((a: any) => a.id).sort();
-          const studentIds = Array.isArray(studentAnswer) ? [...studentAnswer].sort() : [];
-          isCorrect = JSON.stringify(correctIds) === JSON.stringify(studentIds);
-          break;
-        case 'matching': {
-          const normalize = (str: string) =>
-            str
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .trim()
-              .toLowerCase();
-
-          if (typeof studentAnswer === 'object' && studentAnswer !== null) {
-            let allPairsCorrect = true;
-            let pairCount = 0;
-            for (const a of question.activity_answers) {
-              const parts = (a.answer_text || '').split('|').map((s: string) => s.trim());
-              if (parts.length >= 2) {
-                pairCount++;
-                const expectedDef = parts.slice(1).join('|').trim();
-                const studentVal = String(studentAnswer[a.id] || studentAnswer[parts[0]] || '').trim();
-                if (normalize(studentVal) !== normalize(expectedDef)) {
-                  allPairsCorrect = false;
-                  break;
-                }
-              }
-            }
-            isCorrect = allPairsCorrect && pairCount > 0;
-          } else {
-            isCorrect = false;
-          }
-          break;
-        }
-        case 'fill_blank':
-          // Las preguntas de completar espacios NO se califican automáticamente; el profesor debe asignar la nota
-          isCorrect = false;
-          break;
-        case 'open_text':
-          // Las preguntas abiertas NO se califican automáticamente; el profesor debe asignar la nota
-          isCorrect = false;
-          break;
-        case 'order_steps': {
-          const sortedAnswers = [...question.activity_answers].sort(
-            (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)
-          );
-          const correctOrderIds = sortedAnswers.map((a: any) => a.id);
-          const correctOrderTexts = sortedAnswers.map((a: any) => (a.answer_text || '').trim().toLowerCase());
-          if (Array.isArray(studentAnswer)) {
-            const parsedStudentIds = studentAnswer.map((s: any) =>
-              typeof s === 'object' && s !== null && s.id ? s.id : String(s || '')
-            );
-            const isIdMatch = JSON.stringify(correctOrderIds) === JSON.stringify(parsedStudentIds);
-            const isTextMatch =
-              JSON.stringify(correctOrderTexts) ===
-              JSON.stringify(studentAnswer.map((s: any) => String(s || '').trim().toLowerCase()));
-            isCorrect = isIdMatch || isTextMatch;
-          } else {
-            isCorrect = false;
-          }
-          break;
-        }
-      }
+      const isCorrect = this.isQuestionAnswerCorrect(question, studentAnswer);
 
       if (isCorrect) earnedPoints += question.points || 1;
       feedback[question.id] = {
@@ -208,7 +233,7 @@ export class ActivityService {
       attempt_number: attemptNumber,
       score: scorePercentage,
       status: status,
-      answers_json: submittedAnswers,
+      answers_json: finalAnswers,
       completed_at: new Date().toISOString()
     });
 

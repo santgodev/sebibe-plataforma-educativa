@@ -510,26 +510,26 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
   return (
     <div className="bg-card rounded-lg border">
       <Tabs defaultValue="questions" className="w-full">
-        <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20">
-          <TabsList>
-            <TabsTrigger value="questions" className="gap-2"><ListChecks className="w-4 h-4"/> Preguntas</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4"/> Configuración</TabsTrigger>
+        <div className="border-b px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-muted/20">
+          <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
+            <TabsTrigger value="questions" className="gap-1.5 sm:gap-2 text-xs sm:text-sm"><ListChecks className="w-4 h-4"/> Preguntas</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 sm:gap-2 text-xs sm:text-sm"><Settings className="w-4 h-4"/> Configuración</TabsTrigger>
           </TabsList>
-          <Button onClick={handleSave} disabled={isPending} size="sm">
+          <Button onClick={handleSave} disabled={isPending} size="sm" className="w-full sm:w-auto">
             {isPending ? 'Guardando...' : 'Guardar Cuestionario'}
           </Button>
         </div>
 
-        <TabsContent value="questions" className="p-6 space-y-6 m-0">
+        <TabsContent value="questions" className="p-3 sm:p-6 space-y-4 sm:space-y-6 m-0">
           {questions.map((q, qIndex) => (
-            <div key={q.id} className="border rounded-lg p-5 relative bg-background shadow-sm">
+            <div key={q.id} className="border rounded-xl p-3.5 sm:p-5 relative bg-background shadow-sm">
               <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeQuestion(qIndex)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pr-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-4 pr-8">
                 <div className="md:col-span-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <Label>Texto de la Pregunta</Label>
                     {q.type === 'fill_blank' && (() => {
                       const blankCount = (q.question_text || '').split('[___]').length - 1;
@@ -622,16 +622,27 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                       const right = a.right !== undefined ? a.right : (parts.length > 1 ? parts.slice(1).join('|').trim() : '');
 
                       return (
-                        <div key={a.id} className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 bg-background border rounded-lg shadow-xs">
-                          <span className="font-mono text-xs font-bold text-muted-foreground w-6 text-center self-center sm:self-auto">
-                            #{aIndex + 1}
-                          </span>
+                        <div key={a.id} className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 sm:p-2.5 bg-background border rounded-xl shadow-xs">
+                          <div className="flex items-center justify-between sm:contents">
+                            <span className="font-mono text-xs font-bold text-muted-foreground sm:w-6 sm:text-center">
+                              Pareja #{aIndex + 1}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive flex-shrink-0 hover:bg-destructive/10 sm:order-last h-8 w-8"
+                              onClick={() => removeAnswer(qIndex, aIndex)}
+                              title="Eliminar pareja"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                           <div className="flex-1">
                             <Input
                               placeholder="Ej. Mitocondria"
                               value={left}
                               onChange={(e) => updateMatchingPair(qIndex, aIndex, 'left', e.target.value)}
-                              className="text-sm font-medium"
+                              className="text-sm font-medium w-full"
                             />
                           </div>
                           <div className="flex items-center justify-center text-muted-foreground px-1">
@@ -643,18 +654,9 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                               placeholder="Ej. Central energética celular"
                               value={right}
                               onChange={(e) => updateMatchingPair(qIndex, aIndex, 'right', e.target.value)}
-                              className="text-sm font-medium"
+                              className="text-sm font-medium w-full"
                             />
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive flex-shrink-0 hover:bg-destructive/10 self-end sm:self-center"
-                            onClick={() => removeAnswer(qIndex, aIndex)}
-                            title="Eliminar pareja"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
                         </div>
                       );
                     })}
@@ -729,17 +731,30 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                           const isWithinBlanks = aIndex < blankCount;
 
                           return (
-                            <div key={currentAns.id || aIndex} className="group flex items-center gap-2 p-2 bg-background border rounded-lg shadow-2xs">
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-mono font-bold shrink-0 ${
-                                  isWithinBlanks
-                                    ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
-                                    : 'bg-muted/50 text-muted-foreground'
-                                }`}
-                              >
-                                {isWithinBlanks ? `Espacio #${aIndex + 1}` : `Extra #${aIndex + 1}`}
-                              </Badge>
+                            <div key={currentAns.id || aIndex} className="group flex flex-col sm:flex-row sm:items-center gap-2 p-3 sm:p-2 bg-background border rounded-xl shadow-2xs">
+                              <div className="flex items-center justify-between gap-2 sm:contents">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs font-mono font-bold shrink-0 ${
+                                    isWithinBlanks
+                                      ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                                      : 'bg-muted/50 text-muted-foreground'
+                                  }`}
+                                >
+                                  {isWithinBlanks ? `Espacio #${aIndex + 1}` : `Extra #${aIndex + 1}`}
+                                </Badge>
+                                {answersList.length > blankCount && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive flex-shrink-0 hover:bg-destructive/10 sm:order-last h-8 w-8"
+                                    onClick={() => removeAnswer(qIndex, aIndex)}
+                                    title="Eliminar respuesta extra"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
                               <Input
                                 value={currentAns.answer_text}
                                 placeholder={
@@ -766,19 +781,8 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                                     );
                                   }
                                 }}
-                                className="flex-1 font-medium text-sm"
+                                className="w-full sm:flex-1 font-medium text-sm"
                               />
-                              {answersList.length > blankCount && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive flex-shrink-0 hover:bg-destructive/10"
-                                  onClick={() => removeAnswer(qIndex, aIndex)}
-                                  title="Eliminar respuesta extra"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
                             </div>
                           );
                         })}
@@ -811,47 +815,58 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
 
                   <div className="space-y-2">
                     {q.answers.map((a: any, aIndex: number) => (
-                      <div key={a.id} className="group flex items-center gap-2 p-2 bg-background border rounded-lg shadow-xs">
-                        <div className="flex flex-col gap-0.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            disabled={aIndex === 0}
-                            onClick={() => moveAnswer(qIndex, aIndex, 'up')}
-                            title="Mover paso arriba"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            disabled={aIndex === q.answers.length - 1}
-                            onClick={() => moveAnswer(qIndex, aIndex, 'down')}
-                            title="Mover paso abajo"
-                          >
-                            <ChevronDown className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      <div key={a.id} className="group flex flex-col sm:flex-row sm:items-center gap-2.5 p-3 sm:p-2.5 bg-background border rounded-xl shadow-xs">
+                        <div className="flex items-center justify-between gap-2 sm:contents">
+                          <Badge variant="secondary" className="font-mono text-xs px-2.5 py-1 whitespace-nowrap font-bold sm:order-2">
+                            Paso {aIndex + 1}
+                          </Badge>
 
-                        <Badge variant="secondary" className="font-mono text-xs px-2.5 py-1 whitespace-nowrap">
-                          Paso {aIndex + 1}
-                        </Badge>
+                          <div className="flex items-center sm:flex-col gap-1 sm:gap-0.5 sm:order-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
+                              disabled={aIndex === 0}
+                              onClick={() => moveAnswer(qIndex, aIndex, 'up')}
+                              title="Mover paso arriba"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
+                              disabled={aIndex === q.answers.length - 1}
+                              onClick={() => moveAnswer(qIndex, aIndex, 'down')}
+                              title="Mover paso abajo"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive flex-shrink-0 hover:bg-destructive/10 h-7 w-7 sm:hidden"
+                              onClick={() => removeAnswer(qIndex, aIndex)}
+                              title="Eliminar paso"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
 
                         <Input
                           value={a.answer_text}
                           placeholder={`Descripción del paso #${aIndex + 1}...`}
                           onChange={(e) => updateAnswer(qIndex, aIndex, 'answer_text', e.target.value)}
-                          className="flex-1 font-medium"
+                          className="w-full sm:flex-1 font-medium text-sm sm:order-3"
                         />
 
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive flex-shrink-0 hover:bg-destructive/10"
+                          className="hidden sm:inline-flex text-destructive flex-shrink-0 hover:bg-destructive/10 sm:order-4"
                           onClick={() => removeAnswer(qIndex, aIndex)}
                           title="Eliminar paso"
                         >
@@ -956,37 +971,64 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                           const isCorrect = Boolean(a.is_correct);
 
                           return (
-                            <div key={a.id} className="group flex items-center gap-2">
-                              {isMultiple && (
-                                <div className="flex items-center justify-center p-1">
-                                  <Checkbox
-                                    id={`check-${q.id}-${a.id}`}
-                                    checked={isCorrect}
-                                    onCheckedChange={(checked) =>
-                                      updateAnswer(qIndex, aIndex, 'is_correct', Boolean(checked))
-                                    }
-                                    className="h-5 w-5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
-                                    title={isCorrect ? 'Respuesta correcta (clic para desmarcar)' : 'Marcar como respuesta correcta'}
-                                  />
-                                </div>
-                              )}
-
-                              {isSingle && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !isCorrect)}
-                                  className="flex-shrink-0 p-1 rounded-full hover:bg-muted transition-colors"
-                                  title={isCorrect ? 'Respuesta correcta' : 'Marcar como respuesta correcta única'}
-                                >
-                                  {isCorrect ? (
-                                    <CheckCircle2 className="text-emerald-600 w-5 h-5 fill-emerald-100" />
-                                  ) : (
-                                    <Circle className="text-muted-foreground hover:text-foreground w-5 h-5" />
+                            <div key={a.id} className="group flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 sm:p-0 border sm:border-0 rounded-xl sm:rounded-none bg-background sm:bg-transparent">
+                              <div className="flex items-center justify-between gap-2 sm:contents">
+                                <div className="flex items-center gap-2">
+                                  {isMultiple && (
+                                    <div className="flex items-center justify-center p-1">
+                                      <Checkbox
+                                        id={`check-${q.id}-${a.id}`}
+                                        checked={isCorrect}
+                                        onCheckedChange={(checked) =>
+                                          updateAnswer(qIndex, aIndex, 'is_correct', Boolean(checked))
+                                        }
+                                        className="h-5 w-5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
+                                        title={isCorrect ? 'Respuesta correcta (clic para desmarcar)' : 'Marcar como respuesta correcta'}
+                                      />
+                                    </div>
                                   )}
-                                </button>
-                              )}
 
-                              <div className="relative flex-1">
+                                  {isSingle && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !isCorrect)}
+                                      className="flex-shrink-0 p-1 rounded-full hover:bg-muted transition-colors"
+                                      title={isCorrect ? 'Respuesta correcta' : 'Marcar como respuesta correcta única'}
+                                    >
+                                      {isCorrect ? (
+                                        <CheckCircle2 className="text-emerald-600 w-5 h-5 fill-emerald-100" />
+                                      ) : (
+                                        <Circle className="text-muted-foreground hover:text-foreground w-5 h-5" />
+                                      )}
+                                    </button>
+                                  )}
+
+                                  <span className="text-xs font-semibold text-muted-foreground sm:hidden">
+                                    Opción {aIndex + 1}
+                                  </span>
+
+                                  {(isSingle || isMultiple) && isCorrect && (
+                                    <span
+                                      onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !isCorrect)}
+                                      className="sm:hidden cursor-pointer select-none rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                    >
+                                      ✓ Correcta
+                                    </span>
+                                  )}
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive flex-shrink-0 hover:bg-destructive/10 sm:order-last h-8 w-8 sm:h-9 sm:w-9"
+                                  onClick={() => removeAnswer(qIndex, aIndex)}
+                                  title="Eliminar opción"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+
+                              <div className="relative flex-1 w-full">
                                 <Input
                                   value={a.answer_text}
                                   placeholder={
@@ -1006,33 +1048,23 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
                                       }
                                     }
                                   }}
-                                  className={`transition-all ${
+                                  className={`w-full text-sm transition-all ${
                                     isCorrect && (isSingle || isMultiple)
-                                      ? 'border-emerald-500 bg-emerald-50/30 text-emerald-950 font-medium dark:bg-emerald-950/20 dark:text-emerald-100 pr-24'
-                                      : (isSingle || isMultiple) ? 'pr-24' : ''
+                                      ? 'border-emerald-500 bg-emerald-50/30 text-emerald-950 font-medium dark:bg-emerald-950/20 dark:text-emerald-100 sm:pr-24'
+                                      : (isSingle || isMultiple) ? 'sm:pr-24' : ''
                                   }`}
                                 />
 
                                 {(isSingle || isMultiple) && isCorrect && (
                                   <span
                                     onClick={() => updateAnswer(qIndex, aIndex, 'is_correct', !isCorrect)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer select-none rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                    className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer select-none rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300"
                                     title="Clic para desmarcar como correcta"
                                   >
                                     ✓ Correcta
                                   </span>
                                 )}
                               </div>
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive flex-shrink-0 hover:bg-destructive/10"
-                                onClick={() => removeAnswer(qIndex, aIndex)}
-                                title="Eliminar opción"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
                             </div>
                           );
                         })}

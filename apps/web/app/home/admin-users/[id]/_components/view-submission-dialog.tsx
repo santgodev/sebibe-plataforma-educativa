@@ -291,27 +291,27 @@ export function ViewSubmissionDialog({
                     return (
                       <div
                         key={q.id}
-                        className="p-4 bg-muted/10 rounded-xl border space-y-2.5 shadow-2xs hover:border-primary/30 transition-colors"
+                        className="p-3.5 sm:p-4 bg-muted/10 rounded-xl border space-y-2.5 shadow-2xs hover:border-primary/30 transition-colors"
                       >
                         {/* Enunciado de la Pregunta */}
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
                           <div className="flex items-start gap-2 flex-1 min-w-0">
                             <span className="font-bold text-sm text-primary shrink-0 mt-0.5">
                               {idx + 1}.
                             </span>
-                            <p className="font-semibold text-sm text-foreground leading-snug">
+                            <p className="font-semibold text-sm text-foreground leading-snug break-words">
                               {q.type === 'fill_blank' && q.question_text?.includes('[___]')
                                 ? 'Completa la siguiente frase:'
                                 : q.question_text}
                             </p>
                           </div>
-                          <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0">
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0 self-start">
                             {typeLabel}
                           </Badge>
                         </div>
 
                         {/* Respuesta del estudiante según el tipo */}
-                        <div className="pl-5 text-sm">
+                        <div className="pl-0 sm:pl-5 text-sm">
                           {/* CASO: OPCIÓN ÚNICA */}
                           {q.type === 'single_choice' && (() => {
                             if (studentAnswer === null || studentAnswer === undefined) {
@@ -331,7 +331,7 @@ export function ViewSubmissionDialog({
                                 </span>
                                 <div
                                   className={cn(
-                                    'p-2.5 rounded-lg border flex items-center justify-between gap-2 text-xs font-semibold',
+                                    'p-2.5 sm:p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold',
                                     isCorrect === true
                                       ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
                                       : isCorrect === false
@@ -339,16 +339,16 @@ export function ViewSubmissionDialog({
                                       : 'bg-background text-foreground'
                                   )}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    {isCorrect === true && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                                    {isCorrect === false && <XCircle className="w-4 h-4 text-red-600 shrink-0" />}
-                                    <span className="text-sm font-bold">{answerText}</span>
+                                  <div className="flex items-start sm:items-center gap-2 min-w-0">
+                                    {isCorrect === true && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />}
+                                    {isCorrect === false && <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />}
+                                    <span className="text-sm font-bold break-words">{answerText}</span>
                                   </div>
                                   {isCorrect !== undefined && (
                                     <Badge
                                       variant="outline"
                                       className={cn(
-                                        'text-[10px] font-bold',
+                                        'text-[10px] font-bold self-start sm:self-center shrink-0',
                                         isCorrect ? 'border-emerald-400 text-emerald-700' : 'border-red-400 text-red-700'
                                       )}
                                     >
@@ -521,7 +521,7 @@ export function ViewSubmissionDialog({
                               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
                                 Emparejamientos realizados:
                               </span>
-                              <div className="space-y-1 bg-background p-2.5 rounded-lg border text-xs">
+                              <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
                                 {q.activity_answers?.map((a) => {
                                   const [concept, ...rest] = (a.answer_text || '').split('|').map((s) => s.trim());
                                   const expectedDef = rest.join('|').trim();
@@ -534,11 +534,14 @@ export function ViewSubmissionDialog({
                                   return (
                                     <div
                                       key={a.id}
-                                      className="flex items-center justify-between py-1 border-b last:border-0 gap-2"
+                                      className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b last:border-0 gap-1 sm:gap-2"
                                     >
-                                      <span className="font-semibold text-foreground">{concept}</span>
-                                      <span className="text-muted-foreground">➔</span>
-                                      <span className="font-medium text-foreground">{studentChoiceText}</span>
+                                      <span className="font-semibold text-foreground break-words">{concept}</span>
+                                      <span className="text-muted-foreground hidden sm:inline shrink-0">➔</span>
+                                      <span className="font-medium text-primary sm:text-foreground break-words">
+                                        <span className="sm:hidden text-muted-foreground mr-1">➔</span>
+                                        {studentChoiceText}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -552,16 +555,16 @@ export function ViewSubmissionDialog({
                               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
                                 Secuencia organizada:
                               </span>
-                              <div className="space-y-1 bg-background p-2.5 rounded-lg border text-xs">
+                              <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
                                 {Array.isArray(studentAnswer) && studentAnswer.length > 0 ? (
                                   studentAnswer.map((stepId: any, sIdx: number) => {
                                     const stepText = resolveText(stepId);
                                     return (
-                                      <div key={sIdx} className="flex items-center gap-2 py-0.5">
-                                        <Badge variant="outline" className="font-mono text-[10px]">
+                                      <div key={sIdx} className="p-2 rounded-lg border bg-muted/10 flex items-start justify-between gap-2.5">
+                                        <span className="font-medium text-foreground break-words flex-1 leading-snug">{stepText}</span>
+                                        <Badge variant="outline" className="font-mono text-[10px] shrink-0 font-bold">
                                           Paso {sIdx + 1}
                                         </Badge>
-                                        <span className="font-medium text-foreground">{stepText}</span>
                                       </div>
                                     );
                                   })

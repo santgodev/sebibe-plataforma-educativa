@@ -79,20 +79,25 @@ export default async function CourseLandingPage({
   const { requireUserInServerComponent } = await import('~/lib/server/require-user-in-server-component');
   const user = await requireUserInServerComponent();
   
-  const { data: progressData } = await adminClient
-    .from('course_progress')
-    .select('percentage_completed')
-    .eq('student_id', user.id)
-    .eq('course_id', course.id)
-    .maybeSingle();
-  const progressPercentage = progressData?.percentage_completed || 0;
-
   const { data: completedLessonsData } = await adminClient
     .from('lesson_progress')
     .select('lesson_id')
     .eq('student_id', user.id)
     .eq('is_completed', true);
   const completedLessonIds = new Set((completedLessonsData || []).map(p => p.lesson_id));
+
+  let completedLessonsInCourse = 0;
+  modules.forEach((m) => {
+    m.lessons?.forEach((l: any) => {
+      if (completedLessonIds.has(l.id)) {
+        completedLessonsInCourse++;
+      }
+    });
+  });
+  const progressPercentage =
+    totalLessons > 0
+      ? Math.min(Math.round((completedLessonsInCourse / totalLessons) * 100), 100)
+      : 0;
 
   return (
     <div className="bg-background w-full pb-20">
