@@ -199,7 +199,8 @@ export function ViewSubmissionDialog({
               <FileText className="h-5 w-5 text-primary shrink-0" />
               <span>{isReadOnly ? 'Mi Entrega:' : 'Entrega:'} {activity?.title || 'Evaluación'}</span>
             </DialogTitle>
-            {currentScore !== null ? (
+            {currentScore !== null &&
+            !(isReadOnly && attempt.status === 'needs_grading') ? (
               <Badge
                 variant="outline"
                 className={cn(
@@ -213,7 +214,7 @@ export function ViewSubmissionDialog({
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-bold">
-                Sin calificar
+                {isReadOnly && attempt.status === 'needs_grading' ? 'En revisión' : 'Sin calificar'}
               </Badge>
             )}
           </div>
@@ -278,6 +279,8 @@ export function ViewSubmissionDialog({
                         ? 'Opción Única'
                         : q.type === 'multiple_choice'
                         ? 'Selección Múltiple'
+                        : q.type === 'true_false'
+                        ? 'Verdadero / Falso'
                         : q.type === 'fill_blank'
                         ? 'Completar Espacios'
                         : q.type === 'open_text'
@@ -312,17 +315,23 @@ export function ViewSubmissionDialog({
 
                         {/* Respuesta del estudiante según el tipo */}
                         <div className="pl-0 sm:pl-5 text-sm">
-                          {/* CASO: OPCIÓN ÚNICA */}
-                          {q.type === 'single_choice' && (() => {
+                          {/* CASO: OPCIÓN ÚNICA Y VERDADERO/FALSO */}
+                          {(q.type === 'single_choice' || q.type === 'true_false') && (() => {
                             if (studentAnswer === null || studentAnswer === undefined) {
                               return <span className="italic text-muted-foreground text-xs">No respondió.</span>;
                             }
+                            const showCorrectness =
+                              !isReadOnly ||
+                              (Boolean(activity?.automatic_feedback_enabled) &&
+                                attempt.status !== 'needs_grading');
                             const ansInfo = answersMap.get(studentAnswer);
                             const answerText = ansInfo ? ansInfo.text : resolveText(studentAnswer);
-                            const isCorrect = ansInfo ? ansInfo.isCorrect : undefined;
+                            const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
 
                             // Find expected correct answer
-                            const correctAnswer = q.activity_answers?.find((a) => a.is_correct);
+                            const correctAnswer = showCorrectness
+                              ? q.activity_answers?.find((a) => a.is_correct)
+                              : null;
 
                             return (
                               <div className="space-y-1.5">
@@ -384,9 +393,13 @@ export function ViewSubmissionDialog({
                                 </span>
                                 <div className="flex flex-wrap gap-2">
                                   {selectedItems.map((item: any, sIdx: number) => {
+                                    const showCorrectness =
+                                      !isReadOnly ||
+                                      (Boolean(activity?.automatic_feedback_enabled) &&
+                                        attempt.status !== 'needs_grading');
                                     const ansInfo = answersMap.get(item);
                                     const text = ansInfo ? ansInfo.text : resolveText(item);
-                                    const isCorrect = ansInfo ? ansInfo.isCorrect : undefined;
+                                    const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
 
                                     return (
                                       <Badge
@@ -486,11 +499,14 @@ export function ViewSubmissionDialog({
                                           </span>
                                         </div>
 
-                                        {refAnswer && (
-                                          <div className="text-muted-foreground text-xs">
-                                            Referencia esperada: <strong className="text-foreground">{refAnswer}</strong>
-                                          </div>
-                                        )}
+                                        {refAnswer &&
+                                          (!isReadOnly ||
+                                            (Boolean(activity?.automatic_feedback_enabled) &&
+                                              attempt.status !== 'needs_grading')) && (
+                                            <div className="text-muted-foreground text-xs">
+                                              Referencia esperada: <strong className="text-foreground">{refAnswer}</strong>
+                                            </div>
+                                          )}
                                       </div>
                                     );
                                   })}

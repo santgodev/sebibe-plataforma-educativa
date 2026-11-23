@@ -76,12 +76,14 @@ function MatchingViewer({
   studentMatches,
   onSelectMatch,
   result,
+  showFeedback,
   studentSeed,
 }: {
   question: any;
   studentMatches: Record<string, string>;
   onSelectMatch: (pairId: string, value: string) => void;
   result: any;
+  showFeedback: boolean;
   studentSeed?: string;
 }) {
   const pairs = useMemo(() => {
@@ -116,16 +118,17 @@ function MatchingViewer({
       <div className="space-y-3">
         {pairs.map((pair: any, index: number) => {
           const selectedValue = studentMatches?.[pair.id] || '';
+          const revealResult = Boolean(result && showFeedback);
           const isCorrect =
-            result && normalize(selectedValue) === normalize(pair.definition);
+            revealResult && normalize(selectedValue) === normalize(pair.definition);
           const isIncorrect =
-            result && normalize(selectedValue) !== normalize(pair.definition);
+            revealResult && normalize(selectedValue) !== normalize(pair.definition);
 
           return (
             <div
               key={pair.id}
               className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                result
+                revealResult
                   ? isCorrect
                     ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
                     : 'border-destructive/60 bg-destructive/5'
@@ -155,7 +158,7 @@ function MatchingViewer({
                 >
                   <SelectTrigger
                     className={`w-full h-auto min-h-10 py-2 text-left whitespace-normal [&>span]:line-clamp-none [&>span]:whitespace-normal text-sm font-medium ${
-                      result
+                      revealResult
                         ? isCorrect
                           ? 'border-emerald-500 text-emerald-800 dark:text-emerald-300'
                           : 'border-destructive text-destructive'
@@ -173,7 +176,7 @@ function MatchingViewer({
                   </SelectContent>
                 </Select>
 
-                {result && isIncorrect && (
+                {revealResult && isIncorrect && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 font-medium break-words">
                     ✓ Correcta: {pair.definition}
                   </p>
@@ -344,12 +347,14 @@ function OrderStepsViewer({
   studentOrder,
   onChangeOrder,
   result,
+  showFeedback,
   studentSeed,
 }: {
   question: any;
   studentOrder?: string[];
   onChangeOrder: (order: string[]) => void;
   result: any;
+  showFeedback: boolean;
   studentSeed?: string;
 }) {
   const allAnswers = question.activity_answers || [];
@@ -403,13 +408,14 @@ function OrderStepsViewer({
       <div className="space-y-3">
         {currentOrder.map((stepId: string, idx: number) => {
           const stepAnswer = allAnswers.find((a: any) => a.id === stepId);
-          const isCorrectPosition = result && correctOrderIds[idx] === stepId;
+          const revealResult = Boolean(result && showFeedback);
+          const isCorrectPosition = revealResult && correctOrderIds[idx] === stepId;
 
           return (
             <div
               key={stepId || idx}
               className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                result
+                revealResult
                   ? isCorrectPosition
                     ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
                     : 'border-destructive/60 bg-destructive/5'
@@ -422,7 +428,7 @@ function OrderStepsViewer({
                   {stepAnswer?.answer_text || 'Paso'}
                 </span>
                 <Badge
-                  variant={result ? (isCorrectPosition ? 'default' : 'destructive') : 'secondary'}
+                  variant={revealResult ? (isCorrectPosition ? 'default' : 'destructive') : 'secondary'}
                   className="font-mono text-xs px-2.5 py-1 shrink-0 font-bold"
                 >
                   Paso {idx + 1}
@@ -458,7 +464,7 @@ function OrderStepsViewer({
         })}
       </div>
 
-      {result && !isAllCorrect && (
+      {result && showFeedback && !isAllCorrect && (
         <div className="p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 text-xs text-foreground space-y-2 mt-4">
           <span className="font-bold text-emerald-800 dark:text-emerald-300 block">
             Secuencia correcta esperada:
@@ -1162,7 +1168,8 @@ export function QuizViewer({
 
       <div className="space-y-10">
         {questions.map((q: any, idx: number) => {
-          const feedback = result?.feedback?.[q.id];
+          const showAutoFeedback = Boolean(activity?.automatic_feedback_enabled);
+          const feedback = showAutoFeedback ? result?.feedback?.[q.id] : null;
           const isCorrect = feedback?.isCorrect;
           const isManualGradingType = q.type === 'open_text' || q.type === 'fill_blank';
 
@@ -1170,7 +1177,7 @@ export function QuizViewer({
             <div
               key={q.id}
               className={`space-y-3 sm:space-y-4 p-3.5 sm:p-6 rounded-xl border ${
-                result
+                result && showAutoFeedback
                   ? isManualGradingType
                     ? 'border-amber-500/40 bg-amber-500/5'
                     : isCorrect
@@ -1198,7 +1205,7 @@ export function QuizViewer({
                     </div>
                   </div>
                 </div>
-                {result && (
+                {result && showAutoFeedback && (
                   <div className="shrink-0 self-start">
                     {isManualGradingType ? (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-300 dark:border-amber-800">
@@ -1219,8 +1226,11 @@ export function QuizViewer({
                   let optionStyle = 'border-muted bg-background hover:border-primary/50 cursor-pointer';
                   
                   if (isSelected) optionStyle = 'border-primary bg-primary/5 ring-1 ring-primary';
-                  if (result) optionStyle = 'border-muted bg-muted/30 opacity-70 cursor-default';
-                  if (result && isSelected) optionStyle += ' ring-1 ring-muted-foreground';
+                  if (result) {
+                    optionStyle = isSelected
+                      ? 'border-primary/70 bg-primary/5 ring-1 ring-primary/60 cursor-default'
+                      : 'border-muted bg-muted/30 opacity-70 cursor-default';
+                  }
 
                   return (
                     <div
@@ -1241,7 +1251,11 @@ export function QuizViewer({
                   let optionStyle = 'border-muted bg-background hover:border-primary/50 cursor-pointer';
                   
                   if (isSelected) optionStyle = 'border-primary bg-primary/5 ring-1 ring-primary';
-                  if (result) optionStyle = 'border-muted bg-muted/30 opacity-70 cursor-default';
+                  if (result) {
+                    optionStyle = isSelected
+                      ? 'border-primary/70 bg-primary/5 ring-1 ring-primary/60 cursor-default'
+                      : 'border-muted bg-muted/30 opacity-70 cursor-default';
+                  }
 
                   return (
                     <div
@@ -1295,6 +1309,7 @@ export function QuizViewer({
                       }));
                     }}
                     result={result}
+                    showFeedback={showAutoFeedback}
                     studentSeed={studentSeed}
                   />
                 )}
@@ -1305,12 +1320,13 @@ export function QuizViewer({
                     studentOrder={answers[q.id]}
                     onChangeOrder={(newOrder) => handleSelect(q.id, newOrder)}
                     result={result}
+                    showFeedback={showAutoFeedback}
                     studentSeed={studentSeed}
                   />
                 )}
               </div>
 
-              {result && feedback?.feedbackText && (
+              {result && showAutoFeedback && feedback?.feedbackText && (
                 <div className="mt-3 sm:mt-4 bg-muted/50 p-3.5 sm:p-4 rounded-xl text-xs sm:text-sm sm:ml-7 break-words">
                   <strong className="block mb-1">Retroalimentación:</strong>
                   {feedback.feedbackText}

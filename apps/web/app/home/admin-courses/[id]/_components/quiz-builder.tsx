@@ -50,7 +50,7 @@ export function QuizBuilder({ courseId, lessonId, activityId, onSaved }: QuizBui
   const [timeLimit, setTimeLimit] = useState<number | ''>('');
   const [maxAttempts, setMaxAttempts] = useState<number | ''>('');
   const [passingScore, setPassingScore] = useState<number>(70);
-  const [autoFeedback, setAutoFeedback] = useState(true);
+  const [autoFeedback, setAutoFeedback] = useState(false);
   const [randomizeOrder, setRandomizeOrder] = useState(false);
 
   // Questions

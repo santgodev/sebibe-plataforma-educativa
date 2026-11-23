@@ -426,16 +426,21 @@ export function CoursePresenter({
       {/* Top presenter bar */}
       <header className="bg-background/95 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="sm" asChild className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="text-foreground hover:text-primary gap-1.5"
+          >
             <Link href={backHref}>
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Salir</span>
+              <span>Salir</span>
             </Link>
           </Button>
           <div className="bg-border h-5 w-px" />
           <div className="flex min-w-0 items-center gap-2">
             <Presentation className="text-primary h-4 w-4 shrink-0" />
-            <span className="truncate text-sm font-semibold">
+            <span className="text-foreground truncate text-sm font-semibold">
               {courseTitle}
             </span>
           </div>

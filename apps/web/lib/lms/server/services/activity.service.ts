@@ -222,9 +222,11 @@ export class ActivityService {
     const hasManualGrading = fullActivity.activity_questions.some(
       (q: any) => q.type === 'open_text' || q.type === 'fill_blank'
     );
+    const needsTeacherReview =
+      hasManualGrading || !fullActivity.automatic_feedback_enabled;
     const scorePercentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
     const passed = scorePercentage >= (fullActivity.passing_score || 0);
-    const status = hasManualGrading ? 'needs_grading' : (passed ? 'passed' : 'failed');
+    const status = needsTeacherReview ? 'needs_grading' : (passed ? 'passed' : 'failed');
 
     // Save attempt using adminClient to ensure reliable insert and avoid RLS/attempt conflicts
     const { error: insertError } = await adminClient.from('activity_attempts').insert({
@@ -244,9 +246,9 @@ export class ActivityService {
 
     return {
       score: scorePercentage,
-      passed: hasManualGrading ? false : passed,
+      passed: needsTeacherReview ? false : passed,
       status,
-      needsGrading: hasManualGrading,
+      needsGrading: needsTeacherReview,
       feedback: fullActivity.automatic_feedback_enabled ? feedback : null
     };
   }
