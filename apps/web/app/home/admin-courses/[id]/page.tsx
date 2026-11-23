@@ -1,6 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Presentation } from 'lucide-react';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
+import { Button } from '@kit/ui/button';
 import { PageBody, PageHeader } from '@kit/ui/page';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kit/ui/tabs';
 
@@ -120,10 +123,18 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
         title={`Editando: ${course.title}`}
         description="Gestiona las unidades, lecciones y configuración de la materia."
       >
-        <CoursePublishToggle
-          courseId={course.id}
-          initialStatus={course.status || 'draft'}
-        />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="text-foreground gap-2">
+            <Link href={`/home/learn/${course.id}/present?from=admin`}>
+              <Presentation className="h-4 w-4" />
+              Presentar
+            </Link>
+          </Button>
+          <CoursePublishToggle
+            courseId={course.id}
+            initialStatus={course.status || 'draft'}
+          />
+        </div>
       </PageHeader>
 
       <PageBody>

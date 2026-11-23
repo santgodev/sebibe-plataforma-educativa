@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Target, TrendingUp, Trophy, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Presentation, Target, TrendingUp, Trophy, X } from 'lucide-react';
 
 import { Button } from '@kit/ui/button';
 import {
@@ -140,8 +140,20 @@ export function LearnHeader({
         </Link>
       </div>
 
-      {/* Right side: Progress Indicator (Fully responsive) */}
+      {/* Right side: Present button & Progress Indicator (Fully responsive) */}
       <div className="flex items-center gap-2 sm:gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          asChild
+          className="text-foreground gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 text-xs font-semibold"
+        >
+          <Link href={`/home/learn/${courseId}/present`}>
+            <Presentation className="h-4 w-4 text-primary" />
+            <span className="hidden sm:inline">Presentar</span>
+          </Link>
+        </Button>
+
         <div className="flex flex-col items-end">
           <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             Tu progreso
