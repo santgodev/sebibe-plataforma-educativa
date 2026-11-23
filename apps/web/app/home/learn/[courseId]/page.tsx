@@ -1,5 +1,10 @@
 import { redirect } from 'next/navigation';
-import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
+
+import { getSupabaseServerClient } from '@kit/supabase/server-client';
+
+import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
+
+import { getCachedCourseOutline } from './_lib/learn-data.server';
 
 export default async function LearnCourseIndexPage({
   params,
@@ -7,28 +12,45 @@ export default async function LearnCourseIndexPage({
   params: Promise<{ courseId: string }>;
 }) {
   const { courseId } = await params;
-  const client = getSupabaseServerAdminClient();
+  const user = await requireUserInServerComponent();
+  const client = getSupabaseServerClient();
 
-  const { data: modules } = await client
-    .from('course_modules')
-    .select('id, order_index, lessons(id, order_index, deleted_at)')
-    .eq('course_id', courseId)
-    .order('order_index', { ascending: true });
+  const [courseOutlineRes, progressRes] = await Promise.all([
+    getCachedCourseOutline(courseId),
+    client
+      .from('lesson_progress')
+      .select('lesson_id')
+      .eq('student_id', user.id)
+      .eq('is_completed', true),
+  ]);
 
+  const modules = courseOutlineRes.data?.course_modules;
   if (!modules || modules.length === 0) {
     redirect('/home/courses');
   }
 
-  const sortedModules = modules.sort((a, b) => a.order_index - b.order_index);
-  for (const mod of sortedModules) {
-    const rawLessons = mod.lessons as { id: string; order_index: number; deleted_at?: string | null }[] | null;
-    const sortedLessons = (rawLessons || [])
-      .filter((l) => !l.deleted_at)
-      .sort((a, b) => a.order_index - b.order_index);
-    if (sortedLessons.length > 0 && sortedLessons[0]) {
-      redirect(`/home/learn/${courseId}/lesson/${sortedLessons[0].id}`);
-    }
+  const completedLessonIds = new Set(
+    (progressRes.data || []).map((p) => p.lesson_id),
+  );
+
+  const sortedModules = [...modules].sort(
+    (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0),
+  );
+
+  const orderedLessons = sortedModules.flatMap((mod: any) =>
+    ((mod.lessons as any[]) || [])
+      .filter((l: any) => !l.deleted_at)
+      .slice()
+      .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+  );
+
+  if (orderedLessons.length === 0) {
+    redirect('/home/courses');
   }
 
-  redirect('/home/courses');
+  const nextLesson =
+    orderedLessons.find((l: any) => !completedLessonIds.has(l.id)) ||
+    orderedLessons[0];
+
+  redirect(`/home/learn/${courseId}/lesson/${nextLesson.id}`);
 }

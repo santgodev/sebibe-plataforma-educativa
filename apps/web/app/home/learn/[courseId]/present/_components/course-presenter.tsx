@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -29,8 +29,29 @@ import { extractYouTubeId } from '~/lib/lms/utils/youtube';
 interface LessonBlock {
   id: string;
   type: string;
-  content: string | null;
+  content: unknown;
   order_index: number;
+}
+
+function resolveBlockUrl(content: unknown): string | null {
+  if (typeof content === 'string') {
+    return content.trim() || null;
+  }
+  if (content && typeof content === 'object' && 'url' in content) {
+    const url = (content as { url?: unknown }).url;
+    return typeof url === 'string' && url.trim() ? url.trim() : null;
+  }
+  return null;
+}
+
+function resolveBlockText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (content && typeof content === 'object') {
+    const obj = content as { html?: unknown; text?: unknown };
+    if (typeof obj.html === 'string') return obj.html;
+    if (typeof obj.text === 'string') return obj.text;
+  }
+  return '';
 }
 
 interface PresenterLesson {
@@ -149,6 +170,11 @@ export function CoursePresenter({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showIndex, setShowIndex] = useState(false);
+  const [expandedPdf, setExpandedPdf] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
+  const pdfOverlayRef = useRef<HTMLDivElement | null>(null);
 
   const currentSlide = slides[currentIndex] || slides[0]!;
 
@@ -160,17 +186,37 @@ export function CoursePresenter({
     setCurrentIndex((i) => Math.min(slides.length - 1, i + 1));
   }, [slides.length]);
 
+  const openPdfPresentation = useCallback((url: string, title: string) => {
+    setShowIndex(false);
+    setExpandedPdf({ url, title });
+  }, []);
+
+  const closePdfPresentation = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setExpandedPdf(null);
+  }, []);
+
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
+        const target =
+          expandedPdf && pdfOverlayRef.current
+            ? pdfOverlayRef.current
+            : document.documentElement;
+        await target.requestFullscreen();
       } else {
         await document.exitFullscreen();
       }
     } catch {
       // Ignore if fullscreen is blocked by browser
     }
-  }, []);
+  }, [expandedPdf]);
+
+  useEffect(() => {
+    setExpandedPdf(null);
+  }, [currentIndex]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -186,6 +232,20 @@ export function CoursePresenter({
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
+      if (e.key === 'Escape' && expandedPdf) {
+        e.preventDefault();
+        closePdfPresentation();
+        return;
+      }
+
+      if (expandedPdf) {
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+        return;
+      }
+
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         e.preventDefault();
         goNext();
@@ -199,7 +259,7 @@ export function CoursePresenter({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [goNext, goPrev, toggleFullscreen]);
+  }, [goNext, goPrev, toggleFullscreen, expandedPdf, closePdfPresentation]);
 
   const renderLessonBody = (lesson: PresenterLesson) => {
     const blocks = (lesson.lesson_blocks || [])
@@ -210,8 +270,9 @@ export function CoursePresenter({
       return (
         <div className="space-y-6">
           {blocks.map((block) => {
-            if (block.type === 'video' && block.content) {
-              const ytId = extractYouTubeId(block.content);
+            if (block.type === 'video') {
+              const videoUrl = resolveBlockUrl(block.content);
+              const ytId = videoUrl ? extractYouTubeId(videoUrl) : null;
               return ytId ? (
                 <div
                   key={block.id}
@@ -226,23 +287,39 @@ export function CoursePresenter({
                 </div>
               ) : null;
             }
-            if (block.type === 'pdf' && block.content) {
+            if (block.type === 'pdf') {
+              const pdfUrl = resolveBlockUrl(block.content);
+              if (!pdfUrl) return null;
               return (
-                <div key={block.id} className="space-y-2">
-                  <div className="flex justify-end">
-                    <a
-                      href={block.content}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
-                    >
-                      Abrir PDF en nueva pestaña{' '}
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
+                <div key={block.id} className="space-y-3">
+                  <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5">
+                    <span className="text-foreground flex items-center gap-2 text-sm font-medium">
+                      <FileText className="h-4 w-4 text-red-500" />
+                      Documento PDF
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => openPdfPresentation(pdfUrl, lesson.title)}
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                        <span>Presentar en pantalla completa</span>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild className="gap-1.5">
+                        <a href={pdfUrl} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Nueva pestaña</span>
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                   <iframe
-                    src={block.content}
-                    className="h-[68vh] w-full rounded-xl border shadow-sm"
+                    src={pdfUrl}
+                    title={lesson.title}
+                    allowFullScreen
+                    className="h-[72vh] w-full rounded-xl border shadow-sm"
                   />
                 </div>
               );
@@ -252,7 +329,7 @@ export function CoursePresenter({
                 key={block.id}
                 className="text-foreground text-lg leading-relaxed whitespace-pre-wrap sm:text-xl"
               >
-                {block.content}
+                {resolveBlockText(block.content)}
               </div>
             );
           })}
@@ -288,23 +365,34 @@ export function CoursePresenter({
     if (type === 'pdf' && lesson.content) {
       return (
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2.5">
-            <span className="flex items-center gap-2 text-sm font-medium">
+          <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5">
+            <span className="text-foreground flex items-center gap-2 text-sm font-medium">
               <FileText className="h-4 w-4 text-red-500" />
               Documento PDF
             </span>
-            <a
-              href={lesson.content}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
-            >
-              Abrir en nueva pestaña <ExternalLink className="h-4 w-4" />
-            </a>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => openPdfPresentation(lesson.content!, lesson.title)}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Presentar en pantalla completa</span>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <a href={lesson.content} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Nueva pestaña</span>
+                </a>
+              </Button>
+            </div>
           </div>
           <iframe
             src={lesson.content}
-            className="h-[68vh] w-full rounded-xl border shadow-sm"
+            title={lesson.title}
+            allowFullScreen
+            className="h-[72vh] w-full rounded-xl border shadow-sm"
           />
         </div>
       );
@@ -353,19 +441,42 @@ export function CoursePresenter({
           {assignment.pdfs.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
               {assignment.pdfs.map((pdf, idx) => (
-                <a
+                <div
                   key={idx}
-                  href={pdf.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-card hover:border-primary flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors"
+                  className="bg-card flex items-center justify-between gap-3 rounded-xl border p-4"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <FileText className="h-5 w-5 shrink-0 text-red-500" />
                     <span className="truncate font-medium">{pdf.name}</span>
                   </div>
-                  <ExternalLink className="text-muted-foreground h-4 w-4 shrink-0" />
-                </a>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => openPdfPresentation(pdf.url, pdf.name)}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                      <span>Presentar</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                      className="h-8 w-8"
+                    >
+                      <a
+                        href={pdf.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Abrir en nueva pestaña"
+                      >
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -675,6 +786,73 @@ export function CoursePresenter({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </footer>
+
+      {expandedPdf && (
+        <div
+          ref={pdfOverlayRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={expandedPdf.title}
+          className="bg-background fixed inset-0 z-[70] flex flex-col"
+        >
+          <header className="bg-background/95 flex h-12 shrink-0 items-center justify-between gap-3 border-b px-3 backdrop-blur sm:px-5">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileText className="h-4 w-4 shrink-0 text-red-500" />
+              <span className="text-foreground truncate text-sm font-semibold">
+                {expandedPdf.title}
+              </span>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-foreground gap-1.5"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isFullscreen ? 'Salir' : 'Pantalla completa'}
+                </span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="text-foreground gap-1.5"
+              >
+                <a href={expandedPdf.url} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nueva pestaña</span>
+                </a>
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5"
+                onClick={closePdfPresentation}
+              >
+                <X className="h-4 w-4" />
+                <span>Cerrar</span>
+              </Button>
+            </div>
+          </header>
+
+          <iframe
+            src={expandedPdf.url}
+            title={expandedPdf.title}
+            allowFullScreen
+            className="bg-muted/20 h-full w-full flex-1 border-0"
+          />
+        </div>
+      )}
     </div>
   );
 }

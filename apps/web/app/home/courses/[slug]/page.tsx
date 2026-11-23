@@ -89,6 +89,10 @@ export default async function CourseLandingPage({
     .eq('student_id', user.id)
     .eq('is_completed', true);
   const completedLessonIds = new Set((completedLessonsData || []).map(p => p.lesson_id));
+  const orderedLessons = modules.flatMap((m) => m.lessons || []);
+  const resumeLessonId =
+    orderedLessons.find((l: any) => !completedLessonIds.has(l.id))?.id ||
+    firstLessonId;
 
   let completedLessonsInCourse = 0;
   modules.forEach((m) => {
@@ -123,15 +127,15 @@ export default async function CourseLandingPage({
               {course.short_description}
             </p>
 
-            {firstLessonId && (
+            {resumeLessonId && (
               <div className="pt-2 sm:pt-4">
                 <Link
-                  href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
+                  href={`/home/learn/${course.id}/lesson/${resumeLessonId}`}
                   prefetch={false}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3.5 sm:py-4 text-base sm:text-lg font-bold transition-colors"
                 >
                   <PlayCircle className="h-5 w-5" />
-                  Iniciar materia
+                  {progressPercentage > 0 ? 'Continuar materia' : 'Iniciar materia'}
                 </Link>
               </div>
             )}
@@ -277,9 +281,9 @@ export default async function CourseLandingPage({
               </div>
             </div>
 
-            {firstLessonId && (
+            {resumeLessonId && (
               <Link
-                href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
+                href={`/home/learn/${course.id}/lesson/${resumeLessonId}`}
                 prefetch={false}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground block w-full rounded-lg px-4 py-3 text-center font-bold transition-all"
               >

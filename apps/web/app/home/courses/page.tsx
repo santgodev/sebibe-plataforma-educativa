@@ -93,6 +93,7 @@ export default async function CoursesCatalogPage() {
   const mappedCourses = courses.map((course: any) => {
     let totalLessons = 0;
     let completedLessons = 0;
+    const orderedLessons: Array<{ id: string; title: string }> = [];
 
     const modules =
       [...(course.course_modules || [])].sort(
@@ -100,15 +101,24 @@ export default async function CoursesCatalogPage() {
       );
 
     modules.forEach((m: any) => {
-      (m.lessons || [])
+      const sortedLessons = (m.lessons || [])
         .filter((l: any) => !l.deleted_at)
-        .forEach((l: any) => {
-          totalLessons++;
-          if (completedLessonIds.has(l.id)) {
-            completedLessons++;
-          }
-        });
+        .slice()
+        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+      sortedLessons.forEach((l: any) => {
+        totalLessons++;
+        orderedLessons.push({ id: l.id, title: l.title });
+        if (completedLessonIds.has(l.id)) {
+          completedLessons++;
+        }
+      });
     });
+
+    const firstLessonId = orderedLessons[0]?.id || null;
+    const nextPendingLesson =
+      orderedLessons.find((l) => !completedLessonIds.has(l.id)) || null;
+    const resumeLessonId = nextPendingLesson?.id || firstLessonId;
 
     const cp = progressList.find((p) => p.course_id === course.id);
     const percentage =
@@ -121,6 +131,8 @@ export default async function CoursesCatalogPage() {
       ...course,
       totalLessons,
       completedLessons,
+      firstLessonId,
+      resumeLessonId,
       percentage: Math.min(percentage, 100),
       isCompleted,
       updatedAt: cp?.updated_at || course.created_at,
@@ -189,7 +201,10 @@ export default async function CoursesCatalogPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
                 {inProgressCourses.map((course) => {
                   const isStarted = (course.percentage || 0) > 0;
-                  const courseUrl = `/home/courses/${course.slug || course.id}`;
+                  const detailUrl = `/home/courses/${course.slug || course.id}`;
+                  const resumeUrl = course.resumeLessonId
+                    ? `/home/learn/${course.id}/lesson/${course.resumeLessonId}`
+                    : detailUrl;
 
                   return (
                     <div
@@ -250,7 +265,9 @@ export default async function CoursesCatalogPage() {
                           </div>
 
                           <h3 className="font-bold text-base sm:text-lg text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                            {course.title}
+                            <Link href={detailUrl} prefetch={false} className="hover:underline">
+                              {course.title}
+                            </Link>
                           </h3>
 
                           {course.short_description && (
@@ -280,7 +297,7 @@ export default async function CoursesCatalogPage() {
                           </div>
 
                           <Link
-                            href={courseUrl}
+                            href={resumeUrl}
                             prefetch={false}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 text-sm font-bold shadow-xs transition-colors"
                           >
@@ -336,7 +353,10 @@ export default async function CoursesCatalogPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
                 {completedCourses.map((course) => {
-                  const courseUrl = `/home/courses/${course.slug || course.id}`;
+                  const detailUrl = `/home/courses/${course.slug || course.id}`;
+                  const reviewUrl = course.firstLessonId
+                    ? `/home/learn/${course.id}/lesson/${course.firstLessonId}`
+                    : detailUrl;
 
                   return (
                     <div
@@ -382,7 +402,9 @@ export default async function CoursesCatalogPage() {
                           </div>
 
                           <h3 className="font-bold text-base sm:text-lg text-foreground line-clamp-1 group-hover:text-emerald-600 transition-colors">
-                            {course.title}
+                            <Link href={detailUrl} prefetch={false} className="hover:underline">
+                              {course.title}
+                            </Link>
                           </h3>
 
                           {course.short_description && (
@@ -409,7 +431,7 @@ export default async function CoursesCatalogPage() {
                           </div>
 
                           <Link
-                            href={courseUrl}
+                            href={reviewUrl}
                             prefetch={false}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border/80 px-4 py-2.5 text-sm font-semibold shadow-2xs transition-colors"
                           >
