@@ -4,7 +4,19 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { ArrowLeft, FileText, HelpCircle, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  ClipboardList,
+  ExternalLink,
+  FileText,
+  HelpCircle,
+  Link2,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+  Video,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getSupabaseBrowserClient } from '@kit/supabase/browser-client';
@@ -22,6 +34,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kit/ui/tabs';
 import { Textarea } from '@kit/ui/textarea';
 
 import { updateLessonAction } from '~/lib/lms/server/actions/lesson.actions';
+import {
+  AssignmentData,
+  parseAssignmentContent,
+} from '~/lib/lms/utils/assignment';
 import { extractYouTubeId } from '~/lib/lms/utils/youtube';
 
 import { QuizBuilder } from './quiz-builder';
@@ -59,18 +75,33 @@ export function LessonEditor({
   const [editLessonContent, setEditLessonContent] = useState(
     lesson.content || '',
   );
+  const [assignmentData, setAssignmentData] = useState<AssignmentData>(() =>
+    parseAssignmentContent(lesson.content, lesson.video_url),
+  );
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   const handleSave = async () => {
     if (!editLessonTitle.trim()) return;
     startTransition(async () => {
       try {
+        const payloadContent =
+          editLessonType === 'assignment'
+            ? JSON.stringify(assignmentData)
+            : editLessonContent || undefined;
+        const payloadVideoUrl =
+          editLessonType === 'assignment'
+            ? assignmentData.videos[0] || undefined
+            : editLessonVideoUrl || undefined;
+
         await updateLessonAction({
           id: lesson.id,
           title: editLessonTitle.trim(),
           type: editLessonType || undefined,
-          video_url: editLessonVideoUrl || undefined,
-          content: editLessonContent || undefined,
+          video_url: payloadVideoUrl,
+          content: payloadContent,
         });
 
         toast.success('Lección guardada exitosamente');
@@ -80,6 +111,86 @@ export function LessonEditor({
         toast.error(error.message || 'Error al guardar la lección');
       }
     });
+  };
+
+  const handleAssignmentPdfUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const client = getSupabaseBrowserClient();
+      const uploadedPdfs: { name: string; url: string }[] = [];
+
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${lesson.id}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error } = await client.storage
+          .from('courses_media')
+          .upload(`pdfs/${fileName}`, file);
+
+        if (error) throw error;
+
+        const { data: publicUrlData } = client.storage
+          .from('courses_media')
+          .getPublicUrl(`pdfs/${fileName}`);
+
+        uploadedPdfs.push({
+          name: file.name,
+          url: publicUrlData.publicUrl,
+        });
+      }
+
+      setAssignmentData((prev) => ({
+        ...prev,
+        pdfs: [...prev.pdfs, ...uploadedPdfs],
+      }));
+      toast.success(
+        uploadedPdfs.length === 1
+          ? 'PDF adjuntado a la tarea'
+          : `${uploadedPdfs.length} PDFs adjuntados a la tarea`,
+      );
+      e.target.value = '';
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al subir el PDF. Verifica que el bucket exista.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddLink = () => {
+    const trimmedUrl = newLinkUrl.trim();
+    if (!trimmedUrl) return;
+    const normalizedUrl =
+      trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')
+        ? trimmedUrl
+        : `https://${trimmedUrl}`;
+    const label = newLinkLabel.trim() || normalizedUrl;
+
+    setAssignmentData((prev) => ({
+      ...prev,
+      links: [...prev.links, { label, url: normalizedUrl }],
+    }));
+    setNewLinkLabel('');
+    setNewLinkUrl('');
+  };
+
+  const handleAddVideo = () => {
+    const trimmed = newVideoUrl.trim();
+    if (!trimmed) return;
+    if (!extractYouTubeId(trimmed)) {
+      toast.error('Ingresa una URL de YouTube válida');
+      return;
+    }
+    setAssignmentData((prev) => ({
+      ...prev,
+      videos: [...prev.videos, trimmed],
+    }));
+    setNewVideoUrl('');
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,6 +304,7 @@ export function LessonEditor({
                     <SelectItem value="text">Texto / Artículo</SelectItem>
                     <SelectItem value="pdf">Documento PDF</SelectItem>
                     <SelectItem value="quiz">Cuestionario</SelectItem>
+                    <SelectItem value="assignment">Tarea / Asignación</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -248,6 +360,246 @@ export function LessonEditor({
                     />
                   </div>
                 </>
+              )}
+
+              {editLessonType === 'assignment' && (
+                <div className="flex flex-1 flex-col gap-6">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5 text-amber-500" />
+                    <h3 className="text-lg font-semibold">
+                      Configuración de Tarea / Asignación
+                    </h3>
+                  </div>
+
+                  {/* Instrucciones / Texto */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="assignment-instructions"
+                      className="text-sm font-medium"
+                    >
+                      Instrucciones de la tarea
+                    </Label>
+                    <Textarea
+                      id="assignment-instructions"
+                      value={assignmentData.instructions}
+                      onChange={(e) =>
+                        setAssignmentData((prev) => ({
+                          ...prev,
+                          instructions: e.target.value,
+                        }))
+                      }
+                      placeholder="Describe las instrucciones, criterios de entrega o detalles de la asignación..."
+                      className="min-h-[180px] resize-y text-sm leading-relaxed"
+                    />
+                  </div>
+
+                  {/* PDFs adjuntos */}
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <FileText className="h-4 w-4 text-red-500" />
+                        Documentos PDF ({assignmentData.pdfs.length})
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-foreground"
+                        disabled={isUploading}
+                        onClick={() =>
+                          document
+                            .getElementById('assignment-pdf-upload')
+                            ?.click()
+                        }
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {isUploading ? 'Subiendo...' : 'Subir PDF(s)'}
+                      </Button>
+                      <input
+                        id="assignment-pdf-upload"
+                        type="file"
+                        accept=".pdf"
+                        multiple
+                        className="hidden"
+                        onChange={handleAssignmentPdfUpload}
+                      />
+                    </div>
+                    {assignmentData.pdfs.length > 0 ? (
+                      <div className="space-y-2">
+                        {assignmentData.pdfs.map((pdf, idx) => (
+                          <div
+                            key={`${pdf.url}-${idx}`}
+                            className="bg-muted/40 flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                          >
+                            <a
+                              href={pdf.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 truncate text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              <FileText className="h-4 w-4 shrink-0 text-red-500" />
+                              <span className="truncate">{pdf.name}</span>
+                            </a>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() =>
+                                setAssignmentData((prev) => ({
+                                  ...prev,
+                                  pdfs: prev.pdfs.filter((_, i) => i !== idx),
+                                }))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">
+                        No hay PDFs adjuntos todavía.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Enlaces de referencia */}
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <Label className="flex items-center gap-2 text-sm font-medium">
+                      <Link2 className="h-4 w-4 text-blue-500" />
+                      Enlaces / Links de apoyo ({assignmentData.links.length})
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={newLinkLabel}
+                        onChange={(e) => setNewLinkLabel(e.target.value)}
+                        placeholder="Título del enlace (opcional)"
+                        className="sm:w-1/3"
+                      />
+                      <Input
+                        value={newLinkUrl}
+                        onChange={(e) => setNewLinkUrl(e.target.value)}
+                        placeholder="https://ejemplo.com/recurso"
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddLink();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-foreground"
+                        onClick={handleAddLink}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Agregar
+                      </Button>
+                    </div>
+                    {assignmentData.links.length > 0 && (
+                      <div className="space-y-2">
+                        {assignmentData.links.map((link, idx) => (
+                          <div
+                            key={`${link.url}-${idx}`}
+                            className="bg-muted/40 flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                          >
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 truncate text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              <ExternalLink className="h-4 w-4 shrink-0" />
+                              <span className="truncate font-medium">
+                                {link.label}
+                              </span>
+                            </a>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() =>
+                                setAssignmentData((prev) => ({
+                                  ...prev,
+                                  links: prev.links.filter((_, i) => i !== idx),
+                                }))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Videos de YouTube */}
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <Label className="flex items-center gap-2 text-sm font-medium">
+                      <Video className="h-4 w-4 text-purple-500" />
+                      Videos de YouTube ({assignmentData.videos.length})
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={newVideoUrl}
+                        onChange={(e) => setNewVideoUrl(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddVideo();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-foreground"
+                        onClick={handleAddVideo}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Agregar Video
+                      </Button>
+                    </div>
+                    {assignmentData.videos.length > 0 && (
+                      <div className="space-y-2">
+                        {assignmentData.videos.map((videoUrl, idx) => (
+                          <div
+                            key={`${videoUrl}-${idx}`}
+                            className="bg-muted/40 flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                          >
+                            <span className="truncate font-mono text-xs">
+                              {videoUrl}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() =>
+                                setAssignmentData((prev) => ({
+                                  ...prev,
+                                  videos: prev.videos.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                }))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               {editLessonType === 'pdf' && (
@@ -367,6 +719,120 @@ export function LessonEditor({
                         archivo.
                       </p>
                     </>
+                  )}
+                </div>
+              )}
+
+              {editLessonType === 'assignment' && (
+                <div className="bg-card space-y-6 rounded-xl border p-8 shadow-sm">
+                  <div className="flex items-center gap-2 border-b pb-4">
+                    <ClipboardList className="h-6 w-6 text-amber-500" />
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Tarea / Asignación
+                      </span>
+                      <h2 className="text-2xl font-bold">{editLessonTitle}</h2>
+                    </div>
+                  </div>
+
+                  {assignmentData.instructions ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed">
+                      {assignmentData.instructions}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm italic">
+                      Sin instrucciones escritas todavía.
+                    </p>
+                  )}
+
+                  {assignmentData.videos.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Video className="h-4 w-4 text-purple-500" />
+                        Videos de apoyo
+                      </h3>
+                      <div className="grid gap-4">
+                        {assignmentData.videos.map((videoUrl, idx) => {
+                          const ytId = extractYouTubeId(videoUrl);
+                          return ytId ? (
+                            <div
+                              key={`${videoUrl}-${idx}`}
+                              className="aspect-video w-full overflow-hidden rounded-lg bg-black"
+                            >
+                              <iframe
+                                src={`https://www.youtube.com/embed/${ytId}`}
+                                className="h-full w-full"
+                                allowFullScreen
+                              />
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {assignmentData.pdfs.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <FileText className="h-4 w-4 text-red-500" />
+                        Documentos PDF adjuntos
+                      </h3>
+                      <div className="space-y-3">
+                        {assignmentData.pdfs.map((pdf, idx) => (
+                          <div
+                            key={`${pdf.url}-${idx}`}
+                            className="bg-muted/30 flex items-center justify-between rounded-lg border p-3"
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <FileText className="h-4 w-4 shrink-0 text-red-500" />
+                              <span className="truncate text-sm font-medium">
+                                {pdf.name}
+                              </span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-foreground"
+                              asChild
+                            >
+                              <a
+                                href={pdf.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                Abrir PDF
+                              </a>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {assignmentData.links.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Link2 className="h-4 w-4 text-blue-500" />
+                        Enlaces de referencia
+                      </h3>
+                      <div className="space-y-2">
+                        {assignmentData.links.map((link, idx) => (
+                          <a
+                            key={`${link.url}-${idx}`}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-muted/30 hover:bg-muted/60 flex items-center justify-between rounded-lg border p-3 text-sm transition-colors"
+                          >
+                            <span className="font-medium text-blue-600 dark:text-blue-400">
+                              {link.label}
+                            </span>
+                            <ExternalLink className="text-muted-foreground h-4 w-4 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

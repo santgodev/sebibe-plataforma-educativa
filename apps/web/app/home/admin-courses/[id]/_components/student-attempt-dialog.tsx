@@ -124,7 +124,72 @@ export function StudentAttemptDialog({
 
         <div className="space-y-4 mt-2">
           {!activity.activity_questions || activity.activity_questions.length === 0 ? (
-            <p className="text-muted-foreground text-sm italic">No se encontraron detalles de las preguntas.</p>
+            attempt.file_url ||
+            attempt.answers_json?.files?.length > 0 ||
+            attempt.answers_json?.links?.length > 0 ||
+            attempt.answers_json?.comment ? (
+              <div className="space-y-4 rounded-lg border bg-muted/10 p-4 text-sm">
+                {(attempt.answers_json?.files?.length > 0 || attempt.file_url) && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Documentos entregados:
+                    </span>
+                    <div className="space-y-1.5">
+                      {(attempt.answers_json?.files?.length > 0
+                        ? attempt.answers_json.files
+                        : [{ name: 'Documento adjunto', url: attempt.file_url }]
+                      ).map((f: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          <span className="truncate font-medium">{f.name}</span>
+                          <span className="text-xs shrink-0 ml-2">Abrir</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {attempt.answers_json?.links?.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Enlaces entregados:
+                    </span>
+                    <div className="space-y-1.5">
+                      {attempt.answers_json.links.map((l: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={l.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          <span className="truncate font-medium">{l.label || l.url}</span>
+                          <span className="text-xs shrink-0 ml-2">Abrir</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {attempt.answers_json?.comment && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Comentario del estudiante:
+                    </span>
+                    <div className="rounded-md border bg-background p-3 whitespace-pre-wrap text-foreground">
+                      {attempt.answers_json.comment}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm italic">No se encontraron detalles de las preguntas.</p>
+            )
           ) : (
             activity.activity_questions.map((q: any, i: number) => {
               const studentAnswer = attempt.answers_json ? attempt.answers_json[q.id] : null;

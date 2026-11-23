@@ -177,3 +177,120 @@ export const gradeActivityAttemptAction = enhanceAction(
   }
 );
 
+export const submitAssignmentAction = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+    const auth = await requireUser(client);
+    if (!auth.data) throw new Error('Unauthorized');
+
+    const adminClient = getSupabaseServerAdminClient();
+    const studentId = auth.data.id;
+
+    // 1. Ensure a practical activity exists for this assignment lesson
+    const { data: existingActivity } = await adminClient
+      .from('activities')
+      .select('id')
+      .eq('lesson_id', data.lesson_id)
+      .maybeSingle();
+
+    let activityId = existingActivity?.id;
+
+    if (!activityId) {
+      const { data: createdActivity, error: actErr } = await adminClient
+        .from('activities')
+        .insert({
+          lesson_id: data.lesson_id,
+          course_id: data.course_id,
+          type: 'practical',
+          title: data.lesson_title || 'Tarea / Asignación',
+          passing_score: 70,
+        })
+        .select('id')
+        .single();
+
+      if (actErr || !createdActivity) {
+        console.error('Error creating practical activity:', actErr);
+        throw new Error('No se pudo registrar la actividad de la tarea.');
+      }
+      activityId = createdActivity.id;
+    }
+
+    // 2. Check for an existing ungraded attempt to update, or create a new attempt
+    const { data: latestAttempt } = await adminClient
+      .from('activity_attempts')
+      .select('id, attempt_number, status')
+      .eq('activity_id', activityId)
+      .eq('student_id', studentId)
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const payload = {
+      file_url: data.files[0]?.url || null,
+      answers_json: {
+        files: data.files,
+        links: data.links,
+        comment: data.comment || '',
+      },
+      status: 'needs_grading' as const,
+      completed_at: new Date().toISOString(),
+    };
+
+    if (latestAttempt && latestAttempt.status === 'needs_grading') {
+      const { error: updErr } = await adminClient
+        .from('activity_attempts')
+        .update(payload)
+        .eq('id', latestAttempt.id);
+
+      if (updErr) {
+        console.error('Error updating assignment submission:', updErr);
+        throw new Error('Error al actualizar la entrega.');
+      }
+    } else {
+      const nextAttemptNumber = (latestAttempt?.attempt_number || 0) + 1;
+      const { error: insErr } = await adminClient
+        .from('activity_attempts')
+        .insert({
+          activity_id: activityId,
+          student_id: studentId,
+          attempt_number: nextAttemptNumber,
+          ...payload,
+        });
+
+      if (insErr) {
+        console.error('Error inserting assignment submission:', insErr);
+        throw new Error('Error al guardar la entrega.');
+      }
+    }
+
+    revalidatePath(`/home/learn/${data.course_id}/lesson/${data.lesson_id}`);
+    revalidatePath(`/home/admin-courses/${data.course_id}`);
+
+    return { ok: true, activityId };
+  },
+  {
+    schema: z.object({
+      course_id: z.string().uuid(),
+      lesson_id: z.string().uuid(),
+      lesson_title: z.string(),
+      files: z
+        .array(
+          z.object({
+            name: z.string(),
+            url: z.string(),
+          }),
+        )
+        .default([]),
+      links: z
+        .array(
+          z.object({
+            label: z.string(),
+            url: z.string(),
+          }),
+        )
+        .default([]),
+      comment: z.string().optional(),
+    }),
+  },
+);
+

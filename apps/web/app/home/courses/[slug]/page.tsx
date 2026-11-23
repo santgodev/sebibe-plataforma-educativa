@@ -157,7 +157,7 @@ export default async function CourseLandingPage({
           <div>
             <h2 className="mb-4 sm:mb-6 text-xl sm:text-2xl font-bold text-slate-900">Acerca de esta materia</h2>
             <div className="prose text-muted-foreground max-w-none text-sm sm:text-base leading-relaxed">
-              <p>{course.long_description || course.short_description}</p>
+              <p className="whitespace-pre-wrap">{course.long_description || course.short_description}</p>
             </div>
           </div>
 

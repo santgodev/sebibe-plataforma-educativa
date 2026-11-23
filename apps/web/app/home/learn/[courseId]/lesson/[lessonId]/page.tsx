@@ -1,14 +1,16 @@
 import { notFound } from 'next/navigation';
 
-import { ExternalLink, FileText, HelpCircle } from 'lucide-react';
+import { ClipboardList, ExternalLink, FileText, HelpCircle, Link2, Video } from 'lucide-react';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 import { ProgressService } from '~/lib/lms/server/services/progress.service';
+import { parseAssignmentContent } from '~/lib/lms/utils/assignment';
 import { extractYouTubeId } from '~/lib/lms/utils/youtube';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
+import { AssignmentSubmission, type AssignmentSubmissionData } from './_components/assignment-submission';
 import { CompleteLessonButton } from './_components/complete-lesson-button';
 import { LessonComments } from './_components/lesson-comments';
 import { LessonNotes } from './_components/lesson-notes';
@@ -47,12 +49,46 @@ export default async function LessonPage({
     .eq('lesson_id', lessonId)
     .order('order_index', { ascending: true });
 
-  // Load direct activity for quiz-type lessons that don't use blocks
+  // Load direct activity for quiz-type or assignment-type lessons that don't use blocks
   const { data: directActivity } = await client
     .from('activities')
     .select('id')
     .eq('lesson_id', lessonId)
     .maybeSingle();
+
+  // Load existing student submission if this is an assignment lesson
+  let initialSubmission: AssignmentSubmissionData | null = null;
+  if ((lesson as any).type === 'assignment' && directActivity?.id) {
+    const { data: latestAttempt } = await client
+      .from('activity_attempts')
+      .select('id, status, score, completed_at, file_url, answers_json')
+      .eq('activity_id', directActivity.id)
+      .eq('student_id', user.id)
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestAttempt) {
+      const answersObj = (latestAttempt.answers_json as any) || {};
+      const files = Array.isArray(answersObj.files)
+        ? answersObj.files
+        : latestAttempt.file_url
+          ? [{ name: 'Documento adjunto', url: latestAttempt.file_url }]
+          : [];
+      const links = Array.isArray(answersObj.links) ? answersObj.links : [];
+      const comment = typeof answersObj.comment === 'string' ? answersObj.comment : '';
+
+      initialSubmission = {
+        id: latestAttempt.id,
+        status: latestAttempt.status || 'needs_grading',
+        score: latestAttempt.score ?? null,
+        completed_at: latestAttempt.completed_at ?? null,
+        files,
+        links,
+        comment,
+      };
+    }
+  }
 
   // Load progress
   const progress = await progressService.getLessonProgress(user.id, lessonId);
@@ -333,6 +369,130 @@ export default async function LessonPage({
             </a>
           </div>
           <iframe src={content} className="h-[650px] w-full rounded-xl border shadow-sm" />
+        </div>
+      );
+    }
+
+    if (type === 'assignment') {
+      const assignment = parseAssignmentContent(content, videoUrl);
+      return (
+        <div className="space-y-6 sm:space-y-8">
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 px-3 py-1 text-xs font-bold border border-amber-300 dark:border-amber-800">
+            <ClipboardList className="h-3.5 w-3.5" />
+            <span>Tarea / Asignación</span>
+          </div>
+
+          {assignment.instructions && (
+            <div className="prose max-w-none rounded-xl border bg-muted/10 p-4 sm:p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Instrucciones
+              </h3>
+              <div className="text-zinc-800 dark:text-foreground leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                {assignment.instructions}
+              </div>
+            </div>
+          )}
+
+          {assignment.videos.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <Video className="h-4 w-4 text-primary" />
+                <span>Videos de Apoyo</span>
+              </h3>
+              <div className="space-y-4">
+                {assignment.videos.map((vUrl, idx) => {
+                  const ytId = extractYouTubeId(vUrl);
+                  return ytId ? (
+                    <div
+                      key={idx}
+                      className="relative flex aspect-video w-full overflow-hidden bg-black rounded-xl shadow-md"
+                    >
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytId}`}
+                        className="h-full w-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+
+          {assignment.pdfs.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <FileText className="h-4 w-4 text-primary" />
+                <span>Documentos PDF Adjuntos</span>
+              </h3>
+              <div className="space-y-4">
+                {assignment.pdfs.map((pdf, idx) => (
+                  <div key={idx} className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                    <div className="bg-muted/30 flex items-center justify-between gap-2 border-b p-3">
+                      <span className="text-foreground flex items-center gap-2 text-sm font-medium min-w-0">
+                        <FileText className="text-primary h-4 w-4 shrink-0" />
+                        <span className="truncate">{pdf.name}</span>
+                      </span>
+                      <a
+                        href={pdf.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary inline-flex items-center gap-1.5 text-xs font-semibold hover:underline shrink-0"
+                      >
+                        Ver / Descargar <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                    <iframe src={pdf.url} className="h-[520px] w-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {assignment.links.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <Link2 className="h-4 w-4 text-primary" />
+                <span>Enlaces de Referencia</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {assignment.links.map((link, idx) => (
+                  <a
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3.5 hover:border-primary transition-colors shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Link2 className="h-4 w-4 text-primary shrink-0" />
+                      <span className="font-medium text-sm text-foreground break-words">
+                        {link.label}
+                      </span>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!assignment.instructions &&
+            assignment.videos.length === 0 &&
+            assignment.pdfs.length === 0 &&
+            assignment.links.length === 0 && (
+              <p className="text-zinc-400 text-center">
+                Esta tarea aún no tiene instrucciones publicadas.
+              </p>
+            )}
+
+          <AssignmentSubmission
+            courseId={courseId}
+            lessonId={lessonId}
+            lessonTitle={lesson.title}
+            initialSubmission={initialSubmission}
+          />
         </div>
       );
     }

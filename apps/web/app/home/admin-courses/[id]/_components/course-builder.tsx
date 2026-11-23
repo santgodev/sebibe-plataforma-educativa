@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
+  ClipboardList,
   FileText,
   GripVertical,
   HelpCircle,
@@ -417,8 +418,9 @@ export function CourseBuilder({
                     const hasPdf = blocks.some((b: any) => b.type === 'pdf');
                     
                     let Icon = FileText;
-                    if (hasActivity) Icon = HelpCircle;
-                    else if (hasVideo) Icon = Video;
+                    if (hasActivity || (lesson as any).type === 'quiz') Icon = HelpCircle;
+                    else if ((lesson as any).type === 'assignment') Icon = ClipboardList;
+                    else if (hasVideo || (lesson as any).type === 'video') Icon = Video;
                     else if (hasPdf) Icon = FileText;
 
                     return (
