@@ -98,6 +98,7 @@ export function CourseBuilder({
   const handleModuleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedModuleIndex(index);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `module-${index}`);
     setTimeout(() => {
       if (e.target instanceof HTMLElement) e.target.style.opacity = '0.4';
     }, 0);
@@ -139,6 +140,7 @@ export function CourseBuilder({
           })),
         });
         toast.success('Orden de unidades guardado');
+        router.refresh();
       } catch (e: any) {
         toast.error(e.message || 'Error al guardar el nuevo orden');
       }
@@ -153,6 +155,7 @@ export function CourseBuilder({
     e.stopPropagation();
     setDraggedLessonInfo({ moduleIndex, lessonIndex });
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `lesson-${moduleIndex}-${lessonIndex}`);
     setTimeout(() => {
       if (e.target instanceof HTMLElement) e.target.style.opacity = '0.4';
     }, 0);
@@ -215,6 +218,7 @@ export function CourseBuilder({
           })),
         });
         toast.success('Orden de lecciones guardado');
+        router.refresh();
       } catch (e: any) {
         toast.error(e.message || 'Error al guardar el nuevo orden');
       }

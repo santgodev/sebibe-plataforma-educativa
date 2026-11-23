@@ -18,26 +18,48 @@ import { LessonService } from '../services/lesson.service';
 import { ProgressService } from '../services/progress.service';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
+async function getVerifiedStaffClient() {
+  const client = getSupabaseServerClient();
+  const auth = await requireUser(client);
+  if (!auth.data) throw new Error('Unauthorized');
+
+  const adminClient = getSupabaseServerAdminClient();
+  const { data: roleData } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('id', auth.data.id)
+    .maybeSingle();
+
+  const role = roleData?.role;
+  const isStaff =
+    role === 'administrador' ||
+    role === 'admin' ||
+    role === 'profesor' ||
+    role === 'instructor';
+
+  if (!isStaff) {
+    throw new Error('No tienes permisos para modificar las lecciones.');
+  }
+
+  return { client, adminClient, user: auth.data };
+}
+
 export const createLessonAction = enhanceAction(
   async (data) => {
-    const client = getSupabaseServerClient();
-    const auth = await requireUser(client);
-    if (!auth.data) throw new Error('Unauthorized');
-
-    const service = new LessonService(client);
+    const { adminClient } = await getVerifiedStaffClient();
+    const service = new LessonService(adminClient);
 
     const lesson = await service.createLesson(data);
 
     // Recalcular progreso de la materia para los estudiantes inscritos
     try {
-      const adminClient = getSupabaseServerAdminClient();
       const { data: mod } = await adminClient
         .from('course_modules')
         .select('course_id')
         .eq('id', data.module_id)
         .maybeSingle();
       if (mod?.course_id) {
-        const progressService = new ProgressService(client);
+        const progressService = new ProgressService(adminClient);
         await progressService.recalculateCourseProgressForAllStudents(mod.course_id);
         revalidatePath('/home/courses');
       }
@@ -54,11 +76,8 @@ export const createLessonAction = enhanceAction(
 
 export const updateLessonAction = enhanceAction(
   async (data) => {
-    const client = getSupabaseServerClient();
-    const auth = await requireUser(client);
-    if (!auth.data) throw new Error('Unauthorized');
-
-    const service = new LessonService(client);
+    const { adminClient } = await getVerifiedStaffClient();
+    const service = new LessonService(adminClient);
 
     const { id, expected_version, ...updateData } = data as any;
 
@@ -82,9 +101,8 @@ export const updateLessonAction = enhanceAction(
 
 export const reorderLessonsAction = enhanceAction(
   async (data) => {
-    const client = getSupabaseServerClient();
-    await requireUser(client);
-    const service = new LessonService(client);
+    const { adminClient } = await getVerifiedStaffClient();
+    const service = new LessonService(adminClient);
 
     await service.reorderLessons(data.lessons);
 
@@ -97,13 +115,11 @@ export const reorderLessonsAction = enhanceAction(
 
 export const deleteLessonAction = enhanceAction(
   async ({ id }) => {
-    const client = getSupabaseServerClient();
-    await requireUser(client);
-    const service = new LessonService(client);
+    const { adminClient } = await getVerifiedStaffClient();
+    const service = new LessonService(adminClient);
 
     let courseId: string | null = null;
     try {
-      const adminClient = getSupabaseServerAdminClient();
       const { data: lessonRow } = await adminClient
         .from('lessons')
         .select('course_modules(course_id)')
@@ -118,7 +134,7 @@ export const deleteLessonAction = enhanceAction(
 
     if (courseId) {
       try {
-        const progressService = new ProgressService(client);
+        const progressService = new ProgressService(adminClient);
         await progressService.recalculateCourseProgressForAllStudents(courseId);
         revalidatePath('/home/courses');
       } catch (err) {
