@@ -137,6 +137,8 @@ export const deleteLessonAction = enhanceAction(
         const progressService = new ProgressService(adminClient);
         await progressService.recalculateCourseProgressForAllStudents(courseId);
         revalidatePath('/home/courses');
+        revalidatePath(`/home/admin-courses/${courseId}`);
+        revalidatePath(`/home/learn/${courseId}`);
       } catch (err) {
         console.error('Error recalculating course progress on lesson delete:', err);
       }

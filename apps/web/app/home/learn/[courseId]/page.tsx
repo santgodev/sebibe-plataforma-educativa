@@ -11,7 +11,7 @@ export default async function LearnCourseIndexPage({
 
   const { data: modules } = await client
     .from('course_modules')
-    .select('id, order_index, lessons(id, order_index)')
+    .select('id, order_index, lessons(id, order_index, deleted_at)')
     .eq('course_id', courseId)
     .order('order_index', { ascending: true });
 
@@ -21,10 +21,10 @@ export default async function LearnCourseIndexPage({
 
   const sortedModules = modules.sort((a, b) => a.order_index - b.order_index);
   for (const mod of sortedModules) {
-    const rawLessons = mod.lessons as { id: string; order_index: number }[] | null;
-    const sortedLessons = (rawLessons || []).sort(
-      (a, b) => a.order_index - b.order_index,
-    );
+    const rawLessons = mod.lessons as { id: string; order_index: number; deleted_at?: string | null }[] | null;
+    const sortedLessons = (rawLessons || [])
+      .filter((l) => !l.deleted_at)
+      .sort((a, b) => a.order_index - b.order_index);
     if (sortedLessons.length > 0 && sortedLessons[0]) {
       redirect(`/home/learn/${courseId}/lesson/${sortedLessons[0].id}`);
     }

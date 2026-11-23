@@ -28,7 +28,7 @@ export default async function LearningLayout({
       id, title,
       course_modules (
         id, title, order_index,
-        lessons ( id, title, order_index )
+        lessons ( id, title, order_index, deleted_at )
       )
     `,
     )
@@ -52,7 +52,9 @@ export default async function LearningLayout({
   let completedLessonsCount = 0;
   modules.forEach((m) => {
     if (m.lessons) {
-      m.lessons.sort((a, b) => a.order_index - b.order_index);
+      m.lessons = m.lessons
+        .filter((l: any) => !l.deleted_at)
+        .sort((a, b) => a.order_index - b.order_index);
       m.lessons.forEach((l: any) => {
         totalLessons++;
         if (completedLessonsSet.has(l.id)) {

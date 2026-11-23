@@ -78,7 +78,9 @@ export default async function EditCoursePage({ params }: EditCoursePageProps) {
   // Sort lessons within modules since Supabase doesn't guarantee nested order
   const sortedModules = (modules || []).map((m) => ({
     ...m,
-    lessons: (m.lessons || []).sort((a, b) => a.order_index - b.order_index),
+    lessons: (m.lessons || [])
+      .filter((l: any) => !l.deleted_at)
+      .sort((a, b) => a.order_index - b.order_index),
   }));
 
   // Fetch accounts, roles, and student profiles

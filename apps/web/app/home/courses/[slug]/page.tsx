@@ -49,7 +49,7 @@ export default async function CourseLandingPage({
       id, title, slug, short_description, long_description, thumbnail_url, duration_minutes, level,
       course_modules (
         id, title, order_index,
-        lessons ( id, title, order_index, lesson_blocks ( type, order_index ) )
+        lessons ( id, title, order_index, deleted_at, lesson_blocks ( type, order_index ) )
       )
     `,
     );
@@ -66,7 +66,11 @@ export default async function CourseLandingPage({
   const modules =
     course.course_modules?.sort((a, b) => a.order_index - b.order_index) || [];
   modules.forEach((m) => {
-    if (m.lessons) m.lessons.sort((a, b) => a.order_index - b.order_index);
+    if (m.lessons) {
+      m.lessons = m.lessons
+        .filter((l: any) => !l.deleted_at)
+        .sort((a, b) => a.order_index - b.order_index);
+    }
   });
 
   const totalLessons = modules.reduce(

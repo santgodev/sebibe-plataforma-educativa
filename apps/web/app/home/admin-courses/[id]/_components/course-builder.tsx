@@ -335,6 +335,7 @@ export function CourseBuilder({
           ),
         );
         toast.success('Lección eliminada');
+        router.refresh();
       } catch (error: any) {
         toast.error(error.message || 'Error al eliminar la lección');
       }

@@ -49,7 +49,7 @@ export default async function CoursePresentPage({
       course_modules (
         id, title, order_index,
         lessons (
-          id, title, type, content, video_url, order_index,
+          id, title, type, content, video_url, order_index, deleted_at,
           lesson_blocks ( id, type, content, order_index )
         )
       )
@@ -68,6 +68,7 @@ export default async function CoursePresentPage({
     .map((m: any) => ({
       ...m,
       lessons: (m.lessons || [])
+        .filter((l: any) => !l.deleted_at)
         .slice()
         .sort((a: any, b: any) => a.order_index - b.order_index),
     }));
