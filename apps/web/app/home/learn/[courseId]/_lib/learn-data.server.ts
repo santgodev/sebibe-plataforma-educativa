@@ -152,7 +152,7 @@ const fetchActivitiesCatalogShared = unstable_cache(
   async () => {
     const adminClient = getSupabaseServerAdminClient();
     const { data } = await adminClient.from('activities').select(`
-      id, title, type, passing_score, course_id, lesson_id,
+      id, title, type, passing_score, automatic_feedback_enabled, course_id, lesson_id,
       activity_questions (
         id, question_text, type, order_index,
         activity_answers ( id, answer_text, is_correct, order_index )

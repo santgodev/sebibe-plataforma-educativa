@@ -98,8 +98,10 @@ export function ViewSubmissionDialog({
       setIsLoadingQuestions(true);
       getFullActivityAction({ id: activity.id })
         .then((res: any) => {
-          if (res?.data?.activity_questions) {
-            setQuestions(res.data.activity_questions);
+          const fetchedQuestions =
+            res?.activity_questions || res?.data?.activity_questions;
+          if (fetchedQuestions) {
+            setQuestions(fetchedQuestions);
           }
         })
         .catch((err) => {
@@ -151,17 +153,24 @@ export function ViewSubmissionDialog({
   });
 
   // Helper to convert any raw ID/value to readable text
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const resolveText = (val: any): string => {
     if (val === null || val === undefined) return '';
     if (typeof val === 'string') {
       const match = answersMap.get(val);
-      return match ? match.text : val;
+      if (match) return match.text;
+      return uuidRegex.test(val.trim()) ? 'Opción de versión anterior' : val;
     }
     if (typeof val === 'object') {
       if (val.text) return String(val.text);
       if (val.id) {
         const match = answersMap.get(val.id);
-        return match ? match.text : String(val.id);
+        if (match) return match.text;
+        return uuidRegex.test(String(val.id).trim())
+          ? 'Opción de versión anterior'
+          : String(val.id);
       }
       return JSON.stringify(val);
     }

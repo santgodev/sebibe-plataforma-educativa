@@ -89,41 +89,141 @@ export class ActivityRepository {
   }
 
   async saveQuestionsAndAnswers(activityId: string, questions: any[]) {
-    // Delete existing questions (answers will cascade or delete them manually)
-    await this.client.from('activity_questions').delete().eq('activity_id', activityId);
+    // 1. Fetch existing question IDs so we preserve UUIDs for existing questions
+    const { data: existingQuestions, error: existingQError } = await this.client
+      .from('activity_questions')
+      .select('id')
+      .eq('activity_id', activityId);
+
+    if (existingQError) throw existingQError;
+
+    const existingQuestionIds = new Set(
+      (existingQuestions || []).map((q) => q.id),
+    );
+    const keptQuestionIds = new Set(
+      questions
+        .map((q) => q.id)
+        .filter((id): id is string => Boolean(id && existingQuestionIds.has(id))),
+    );
+
+    const removedQuestionIds = [...existingQuestionIds].filter(
+      (id) => !keptQuestionIds.has(id),
+    );
+
+    if (removedQuestionIds.length > 0) {
+      const { error: delQError } = await this.client
+        .from('activity_questions')
+        .delete()
+        .in('id', removedQuestionIds);
+
+      if (delQError) throw delQError;
+    }
 
     for (const [qIndex, q] of questions.entries()) {
-      const { data: questionData, error: qError } = await this.client
-        .from('activity_questions')
-        .insert({
-          activity_id: activityId,
-          question_text: q.question_text,
-          type: q.type,
-          points: q.points || 1,
-          order_index: q.order_index ?? qIndex,
-          feedback_text: q.feedback_text || null,
-        })
-        .select()
-        .single();
+      const questionPayload = {
+        question_text: q.question_text,
+        type: q.type,
+        points: q.points || 1,
+        order_index: q.order_index ?? qIndex,
+        feedback_text: q.feedback_text || null,
+      };
 
-      if (qError) throw qError;
+      let questionId: string;
 
-      if (q.answers && q.answers.length > 0) {
-        const validAnswers = q.answers.filter((a: any) => a.answer_text && a.answer_text.trim() !== '');
-        if (validAnswers.length > 0) {
-          const answersToInsert = validAnswers.map((a: any, aIndex: number) => ({
-            question_id: questionData.id,
-            answer_text: a.answer_text,
-            is_correct: a.is_correct || false,
-            order_index: a.order_index ?? aIndex,
-          }));
+      if (q.id && existingQuestionIds.has(q.id)) {
+        const { error: updQError } = await this.client
+          .from('activity_questions')
+          .update(questionPayload)
+          .eq('id', q.id)
+          .eq('activity_id', activityId);
 
-          const { error: aError } = await this.client
+        if (updQError) throw updQError;
+        questionId = q.id;
+      } else {
+        const { data: insertedQ, error: insQError } = await this.client
+          .from('activity_questions')
+          .insert({
+            activity_id: activityId,
+            ...questionPayload,
+          })
+          .select('id')
+          .single();
+
+        if (insQError) throw insQError;
+        questionId = insertedQ.id;
+      }
+
+      // Sync answers preserving existing answer UUIDs
+      const { data: existingAnswers, error: existingAError } = await this.client
+        .from('activity_answers')
+        .select('id')
+        .eq('question_id', questionId);
+
+      if (existingAError) throw existingAError;
+
+      const existingAnswerIds = new Set(
+        (existingAnswers || []).map((a) => a.id),
+      );
+      const validAnswers = (q.answers || []).filter(
+        (a: any) => a.answer_text && a.answer_text.trim() !== '',
+      );
+      const keptAnswerIds = new Set(
+        validAnswers
+          .map((a: any) => a.id)
+          .filter((id: unknown): id is string =>
+            Boolean(typeof id === 'string' && existingAnswerIds.has(id)),
+          ),
+      );
+
+      const removedAnswerIds = [...existingAnswerIds].filter(
+        (id) => !keptAnswerIds.has(id),
+      );
+
+      if (removedAnswerIds.length > 0) {
+        const { error: delAError } = await this.client
+          .from('activity_answers')
+          .delete()
+          .in('id', removedAnswerIds);
+
+        if (delAError) throw delAError;
+      }
+
+      const answersToInsert: Array<{
+        question_id: string;
+        answer_text: string;
+        is_correct: boolean;
+        order_index: number;
+      }> = [];
+
+      for (const [aIndex, a] of validAnswers.entries()) {
+        const answerPayload = {
+          answer_text: a.answer_text,
+          is_correct: a.is_correct || false,
+          order_index: a.order_index ?? aIndex,
+        };
+
+        if (a.id && existingAnswerIds.has(a.id)) {
+          const { error: updAError } = await this.client
             .from('activity_answers')
-            .insert(answersToInsert);
+            .update(answerPayload)
+            .eq('id', a.id)
+            .eq('question_id', questionId);
 
-          if (aError) throw aError;
+          if (updAError) throw updAError;
+        } else {
+          answersToInsert.push({
+            question_id: questionId,
+            ...answerPayload,
+          });
         }
+      }
+
+      if (answersToInsert.length > 0) {
+        const { error: insAError } = await this.client
+          .from('activity_answers')
+          .insert(answersToInsert);
+
+        if (insAError) throw insAError;
       }
     }
   }
