@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
@@ -67,6 +67,7 @@ export const createLessonAction = enhanceAction(
       console.error('Error recalculating course progress on lesson create:', err);
     }
 
+    revalidateTag('lms-content');
     return lesson;
   },
   {
@@ -86,7 +87,8 @@ export const updateLessonAction = enhanceAction(
         id as string,
         { ...updateData, expected_version },
       );
-      return lesson;
+      revalidateTag('lms-content');
+    return lesson;
     } catch (error) {
       console.error('[updateLessonAction ERROR]:', error);
       throw error;
@@ -106,6 +108,7 @@ export const reorderLessonsAction = enhanceAction(
 
     await service.reorderLessons(data.lessons);
 
+    revalidateTag('lms-content');
     return { success: true };
   },
   {
@@ -144,6 +147,7 @@ export const deleteLessonAction = enhanceAction(
       }
     }
 
+    revalidateTag('lms-content');
     return { success: true };
   },
   {

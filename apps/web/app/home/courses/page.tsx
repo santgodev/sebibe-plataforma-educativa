@@ -11,9 +11,12 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
-import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
+import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { PageBody, PageHeader } from '@kit/ui/page';
+
+import { getCachedCoursesCatalog } from '~/home/learn/[courseId]/_lib/learn-data.server';
+import { getCachedUserRole } from '~/lib/server/get-cached-user-role';
+import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
 export const metadata = {
   title: 'Mi Aprendizaje',
@@ -21,16 +24,8 @@ export const metadata = {
 
 export default async function CoursesCatalogPage() {
   const user = await requireUserInServerComponent();
-  const adminClient = getSupabaseServerAdminClient();
+  const role = (await getCachedUserRole(user.id)) as string | null;
 
-  // Verificar rol: profesores y administradores van a su vista de gestión/materias a cargo
-  const { data: roleData } = await adminClient
-    .from('user_roles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const role = roleData?.role;
   const isAdmin = role === 'administrador' || role === 'admin';
   const isProfesor = role === 'profesor' || role === 'instructor';
 
@@ -38,54 +33,35 @@ export default async function CoursesCatalogPage() {
     redirect('/home/admin-courses');
   }
 
-  // 1. Obtener todas las asignaturas asignadas / inscritas del estudiante
-  const { data: enrollments } = await adminClient
-    .from('course_enrollments')
-    .select('course_id, enrolled_at, completed_at')
-    .eq('student_id', user.id);
+  const client = getSupabaseServerClient();
 
-  const enrolledCourseIds = (enrollments || []).map((e) => e.course_id);
+  // Single RPC for all per-student dashboard data + shared cached course catalog
+  const [{ data: studentCoursesState }, allCatalogCourses] = await Promise.all([
+    (client as any).rpc('get_student_courses_state'),
+    getCachedCoursesCatalog(),
+  ]);
 
-  // 2. Obtener progreso de materias
-  const { data: progressData } = await adminClient
-    .from('course_progress')
-    .select('course_id, percentage_completed, updated_at, created_at, status, completed_at')
-    .eq('student_id', user.id);
-
-  const progressList = progressData || [];
-  const progressCourseIds = progressList.map((p) => p.course_id);
-
-  // 3. Obtener materias asociadas a intentos de actividades / evaluaciones
-  const { data: rawAttempts } = await adminClient
-    .from('activity_attempts')
-    .select(`
-      activities (
-        course_id,
-        lessons (
-          course_modules (
-            course_id
-          )
-        )
-      )
-    `)
-    .eq('student_id', user.id);
-
-  const attemptCourseIds: string[] = [];
-  (rawAttempts || []).forEach((a) => {
-    const act = a.activities as any;
-    const cId =
-      act?.course_id ||
-      act?.lessons?.course_modules?.course_id;
-    if (cId) attemptCourseIds.push(cId);
-  });
-
-  // Unir todos los IDs de asignaturas asociados al estudiante
-  const allStudentCourseIds = Array.from(
-    new Set([...enrolledCourseIds, ...progressCourseIds, ...attemptCourseIds])
+  const enrollments: Array<{ course_id: string }> =
+    studentCoursesState?.enrollments || [];
+  const progressList: Array<any> = studentCoursesState?.progress || [];
+  const attemptCourseIds: string[] =
+    studentCoursesState?.attempt_course_ids || [];
+  const completedLessonIds = new Set<string>(
+    studentCoursesState?.completed_lesson_ids || [],
   );
 
+  const enrolledCourseIds = enrollments.map((e) => e.course_id);
+  const progressCourseIds = progressList.map((p) => p.course_id);
+
+  // Unir todos los IDs de asignaturas asociados al estudiante
+  const allStudentCourseIds = new Set([
+    ...enrolledCourseIds,
+    ...progressCourseIds,
+    ...attemptCourseIds,
+  ]);
+
   // Si no tiene materias asignadas ni avance, mostrar estado vacío
-  if (allStudentCourseIds.length === 0) {
+  if (allStudentCourseIds.size === 0) {
     return (
       <>
         <PageHeader
@@ -109,46 +85,29 @@ export default async function CoursesCatalogPage() {
     );
   }
 
-  // 4. Obtener progreso de lecciones del estudiante
-  const { data: lessonProgress } = await adminClient
-    .from('lesson_progress')
-    .select('lesson_id')
-    .eq('student_id', user.id)
-    .eq('is_completed', true);
-
-  const completedLessonIds = new Set((lessonProgress || []).map((lp) => lp.lesson_id));
-
-  // 5. Consultar los datos de las materias
-  const { data: coursesData } = await adminClient
-    .from('courses')
-    .select(`
-      id, title, slug, short_description, thumbnail_url, duration_minutes, level, status, created_at,
-      course_modules (
-        id, title, order_index,
-        lessons ( id, title, order_index )
-      )
-    `)
-    .in('id', allStudentCourseIds);
-
-  const courses = coursesData || [];
+  const courses = (allCatalogCourses || []).filter((c: any) =>
+    allStudentCourseIds.has(c.id),
+  );
 
   // Mapear cada materia con sus estadísticas
-  const mappedCourses = courses.map((course) => {
+  const mappedCourses = courses.map((course: any) => {
     let totalLessons = 0;
     let completedLessons = 0;
 
     const modules =
-      course.course_modules?.sort(
+      [...(course.course_modules || [])].sort(
         (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0)
-      ) || [];
+      );
 
     modules.forEach((m: any) => {
-      m.lessons?.forEach((l: any) => {
-        totalLessons++;
-        if (completedLessonIds.has(l.id)) {
-          completedLessons++;
-        }
-      });
+      (m.lessons || [])
+        .filter((l: any) => !l.deleted_at)
+        .forEach((l: any) => {
+          totalLessons++;
+          if (completedLessonIds.has(l.id)) {
+            completedLessons++;
+          }
+        });
     });
 
     const cp = progressList.find((p) => p.course_id === course.id);
@@ -322,6 +281,7 @@ export default async function CoursesCatalogPage() {
 
                           <Link
                             href={courseUrl}
+                            prefetch={false}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 text-sm font-bold shadow-xs transition-colors"
                           >
                             <PlayCircle className="w-4 h-4 shrink-0" />
@@ -450,6 +410,7 @@ export default async function CoursesCatalogPage() {
 
                           <Link
                             href={courseUrl}
+                            prefetch={false}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border/80 px-4 py-2.5 text-sm font-semibold shadow-2xs transition-colors"
                           >
                             <RotateCcw className="w-4 h-4 shrink-0 text-muted-foreground" />

@@ -11,8 +11,8 @@ import {
 import { SidebarProvider } from '@kit/ui/shadcn-sidebar';
 
 import { navigationConfig } from '~/config/navigation.config';
-import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { withI18n } from '~/lib/i18n/with-i18n';
+import { getCachedUserRole } from '~/lib/server/get-cached-user-role';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
 // home imports
@@ -35,9 +35,8 @@ function HomeLayout({ children }: React.PropsWithChildren) {
 export default withI18n(HomeLayout);
 
 async function getUserRole(userId: string) {
-  const client = getSupabaseServerClient();
-  const { data } = await client.from('user_roles').select('role').eq('id', userId).single();
-  return data?.role || 'student';
+  const role = await getCachedUserRole(userId);
+  return role || 'student';
 }
 
 function SidebarLayout({ children, role }: React.PropsWithChildren<{ role?: string }>) {

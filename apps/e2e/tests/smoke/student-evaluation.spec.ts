@@ -582,15 +582,16 @@ test.describe('E2E Evaluación de Estudiante', () => {
           if (!concept) continue;
 
           const pairRow = card
-            .locator('div.rounded-xl.border')
+            .locator('div')
             .filter({
-              has: page
-                .locator('span.font-semibold')
-                .getByText(concept, { exact: true }),
+              has: page.getByText(concept, { exact: true }),
             })
-            .first();
+            .filter({
+              has: page.getByRole('combobox'),
+            })
+            .last();
 
-          await pairRow.locator('button[role="combobox"]').click();
+          await pairRow.getByRole('combobox').click();
           await page
             .getByRole('option', { name: definition, exact: true })
             .first()

@@ -1,5 +1,5 @@
+import { getCachedUserRole } from '~/lib/server/get-cached-user-role';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
-import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { StudentGradesView } from './_components/student-grades-view';
 import { AdminGradesView } from './_components/admin-grades-view';
 
@@ -9,16 +9,7 @@ export const metadata = {
 
 export default async function GradesPage() {
   const user = await requireUserInServerComponent();
-  const adminClient = getSupabaseServerAdminClient();
-
-  // Fetch the role of the current user
-  const { data: roleData } = await adminClient
-    .from('user_roles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const role = roleData?.role || 'alumno';
+  const role = ((await getCachedUserRole(user.id)) as string | null) || 'alumno';
 
   if (role === 'profesor' || role === 'administrador' || role === 'admin' || role === 'coordinador') {
     return <AdminGradesView />;

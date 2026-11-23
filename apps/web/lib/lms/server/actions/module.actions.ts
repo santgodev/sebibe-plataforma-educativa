@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { z } from 'zod';
 
@@ -59,6 +59,7 @@ export const createModuleAction = enhanceAction(
     }
 
     revalidatePath(`/home/admin-courses/${data.course_id}`);
+    revalidateTag('lms-content');
     return module;
   },
   {
@@ -77,6 +78,7 @@ export const updateModuleAction = enhanceAction(
       { ...updateData, expected_version },
     );
 
+    revalidateTag('lms-content');
     return module;
   },
   {
@@ -93,6 +95,7 @@ export const reorderModulesAction = enhanceAction(
 
     await service.reorderModules(data.modules);
 
+    revalidateTag('lms-content');
     return { success: true };
   },
   {
@@ -129,6 +132,7 @@ export const deleteModuleAction = enhanceAction(
       }
     }
 
+    revalidateTag('lms-content');
     return { success: true };
   },
   {

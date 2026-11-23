@@ -3,11 +3,11 @@ import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 
-import { ProgressService } from '~/lib/lms/server/services/progress.service';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
-import { LessonSidebarNav } from './_components/lesson-sidebar-nav';
 import { LearnHeader } from './_components/learn-header';
+import { LessonSidebarNav } from './_components/lesson-sidebar-nav';
+import { getCachedCourseOutline } from './_lib/learn-data.server';
 
 export default async function LearningLayout({
   children,
@@ -19,37 +19,27 @@ export default async function LearningLayout({
   const { courseId } = await params;
   const client = getSupabaseServerClient();
   const user = await requireUserInServerComponent();
-  const progressService = new ProgressService(client);
 
-  const { data: course, error } = await client
-    .from('courses')
-    .select(
-      `
-      id, title,
-      course_modules (
-        id, title, order_index,
-        lessons ( id, title, order_index, deleted_at )
-      )
-    `,
-    )
-    .eq('id', courseId)
-    .single();
+  const [{ data: course, error }, { data: completedRows }] = await Promise.all([
+    getCachedCourseOutline(courseId),
+    client
+      .from('lesson_progress')
+      .select('lesson_id')
+      .eq('student_id', user.id)
+      .eq('is_completed', true),
+  ]);
 
   if (error || !course) {
     return notFound();
   }
 
-  const completedLessonsSet = await progressService.getCompletedLessonsSet(
-    user.id,
-    courseId,
-  );
-
   // Sort modules and lessons and calculate real-time progress
-  const modules = course.course_modules.sort(
+  const modules = [...(course.course_modules || [])].sort(
     (a, b) => a.order_index - b.order_index,
   );
+  const validLessonIds = new Set<string>();
   let totalLessons = 0;
-  let completedLessonsCount = 0;
+
   modules.forEach((m) => {
     if (m.lessons) {
       m.lessons = m.lessons
@@ -57,12 +47,17 @@ export default async function LearningLayout({
         .sort((a, b) => a.order_index - b.order_index);
       m.lessons.forEach((l: any) => {
         totalLessons++;
-        if (completedLessonsSet.has(l.id)) {
-          completedLessonsCount++;
-        }
+        validLessonIds.add(l.id);
       });
     }
   });
+
+  const completedLessonsSet = new Set(
+    (completedRows || [])
+      .map((row) => row.lesson_id)
+      .filter((id) => validLessonIds.has(id)),
+  );
+  const completedLessonsCount = completedLessonsSet.size;
   const progressPercentage =
     totalLessons > 0
       ? Math.min(Math.round((completedLessonsCount / totalLessons) * 100), 100)
@@ -76,6 +71,7 @@ export default async function LearningLayout({
           <div className="mb-3 flex items-center gap-3">
             <Link
               href="/home/courses"
+              prefetch={false}
               className="text-foreground/70 hover:text-primary text-xs font-semibold transition-colors flex items-center gap-1"
             >
               ← Volver al catálogo

@@ -2,14 +2,15 @@ import { notFound } from 'next/navigation';
 
 import { ClipboardList, ExternalLink, FileText, HelpCircle, Link2, Video } from 'lucide-react';
 
-import { getSupabaseServerClient } from '@kit/supabase/server-client';
-import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
-
-import { ProgressService } from '~/lib/lms/server/services/progress.service';
 import { parseAssignmentContent } from '~/lib/lms/utils/assignment';
 import { extractYouTubeId } from '~/lib/lms/utils/youtube';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
+import {
+  getCachedCourseOutline,
+  getCachedLessonBundle,
+  getStudentLessonState,
+} from '../../_lib/learn-data.server';
 import { AssignmentSubmission, type AssignmentSubmissionData } from './_components/assignment-submission';
 import { CompleteLessonButton } from './_components/complete-lesson-button';
 import { LessonComments } from './_components/lesson-comments';
@@ -23,9 +24,8 @@ export async function generateMetadata({
   params: Promise<{ lessonId: string }>;
 }) {
   const { lessonId } = await params;
-  const client = getSupabaseServerClient();
-  const { data } = await client.from('lessons').select('title').eq('id', lessonId).single();
-  return { title: data?.title || 'Lección' };
+  const bundle = await getCachedLessonBundle(lessonId);
+  return { title: bundle?.lesson?.title || 'Lección' };
 }
 
 export default async function LessonPage({
@@ -34,39 +34,66 @@ export default async function LessonPage({
   params: Promise<{ lessonId: string; courseId: string }>;
 }) {
   const { lessonId, courseId } = await params;
-  const client = getSupabaseServerClient();
   const user = await requireUserInServerComponent();
-  const progressService = new ProgressService(client);
 
-  // Load lesson
-  const { data: lesson, error } = await client.from('lessons').select('*').eq('id', lessonId).single();
-  if (error || !lesson) return notFound();
+  // Shared cross-request cached content (0 DB queries on cache hit)
+  const [bundle, courseOutlineRes] = await Promise.all([
+    getCachedLessonBundle(lessonId),
+    getCachedCourseOutline(courseId),
+  ]);
 
-  // Load blocks
-  const { data: blocks } = await client
-    .from('lesson_blocks')
-    .select('*')
-    .eq('lesson_id', lessonId)
-    .order('order_index', { ascending: true });
+  if (!bundle || !bundle.lesson) {
+    return notFound();
+  }
 
-  // Load direct activity for quiz-type or assignment-type lessons that don't use blocks
-  const { data: directActivity } = await client
-    .from('activities')
-    .select('id')
-    .eq('lesson_id', lessonId)
-    .maybeSingle();
+  const { lesson: currentLesson, blocks, directActivity, activitiesList, activityIds } = bundle;
+
+  // Single Postgres RPC for ALL per-student dynamic state (role, enrollment, account, progress, notes, comments, attempts)
+  const studentState = await getStudentLessonState(courseId, lessonId, activityIds);
+  if (!studentState) {
+    return notFound();
+  }
+
+  const roleName = studentState.role;
+  const canModerate =
+    roleName === 'admin' ||
+    roleName === 'administrador' ||
+    roleName === 'profesor' ||
+    roleName === 'instructor' ||
+    studentState.is_instructor;
+
+  // Enforce enrollment / publish access control
+  if (!canModerate && (!studentState.is_enrolled || !currentLesson.is_published)) {
+    return notFound();
+  }
+
+  const isCompleted = studentState.lesson_completed;
+  const currentUserAccount = studentState.account;
+  const notes = studentState.notes || [];
+  const comments = studentState.comments || [];
+  const hasBlocks = blocks.length > 0;
+
+  // Map full activities and attempts by activity_id
+  const activitiesById = new Map<string, any>();
+  for (const act of activitiesList) {
+    activitiesById.set(act.id, act);
+  }
+
+  const attemptsData = studentState.attempts || [];
+  const attemptsByActivity = new Map<string, any[]>();
+  for (const attempt of attemptsData) {
+    const list = attemptsByActivity.get(attempt.activity_id) || [];
+    list.push(attempt);
+    attemptsByActivity.set(attempt.activity_id, list);
+  }
 
   // Load existing student submission if this is an assignment lesson
   let initialSubmission: AssignmentSubmissionData | null = null;
-  if ((lesson as any).type === 'assignment' && directActivity?.id) {
-    const { data: latestAttempt } = await client
-      .from('activity_attempts')
-      .select('id, status, score, completed_at, file_url, answers_json')
-      .eq('activity_id', directActivity.id)
-      .eq('student_id', user.id)
-      .order('attempt_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  if ((currentLesson as any).type === 'assignment' && directActivity?.id) {
+    const directAttempts = attemptsByActivity.get(directActivity.id) || [];
+    const latestAttempt = [...directAttempts].sort(
+      (a, b) => (b.attempt_number || 0) - (a.attempt_number || 0),
+    )[0];
 
     if (latestAttempt) {
       const answersObj = (latestAttempt.answers_json as any) || {};
@@ -90,172 +117,52 @@ export default async function LessonPage({
     }
   }
 
-  // Load progress
-  const progress = await progressService.getLessonProgress(user.id, lessonId);
-  const isCompleted = !!progress?.is_completed;
-
-  // Fetch current user account details
-  const { data: currentUserAccount } = await client
-    .from('accounts')
-    .select('name, picture_url')
-    .eq('id', user.id)
-    .single();
-
-  // Load notes
-  const { data: notes } = await client
-    .from('lesson_notes' as any)
-    .select('id, content, created_at')
-    .eq('lesson_id', lessonId)
-    .eq('student_id', user.id)
-    .order('created_at', { ascending: false });
-
-  // Load comments
-  const { data: commentsData } = await client
-    .from('lesson_comments' as any)
-    .select('id, content, created_at, user_id')
-    .eq('lesson_id', lessonId)
-    .order('created_at', { ascending: false });
-
-  let comments: any[] = [];
-  if (commentsData && commentsData.length > 0) {
-    const userIds = commentsData.map(c => c.user_id);
-    // Fetch accounts with admin client to bypass RLS, falling back to standard client if service key is missing/invalid
-    let accountsData: any[] | null = null;
-    try {
-      const adminClient = getSupabaseServerAdminClient();
-      const res = await adminClient
-        .from('accounts')
-        .select('id, name, picture_url')
-        .in('id', userIds);
-      if (!res.error) {
-        accountsData = res.data;
-      } else {
-        const fallback = await client
-          .from('accounts')
-          .select('id, name, picture_url')
-          .in('id', userIds);
-        accountsData = fallback.data;
-      }
-    } catch {
-      const fallback = await client
-        .from('accounts')
-        .select('id, name, picture_url')
-        .in('id', userIds);
-      accountsData = fallback.data;
-    }
-    
-    const accountMap = new Map((accountsData || []).map(a => [a.id, a]));
-
-    comments = commentsData.map((c: any) => {
-      const account = accountMap.get(c.user_id);
-      return {
-        id: c.id,
-        content: c.content,
-        created_at: c.created_at,
-        user_id: c.user_id,
-        display_name: account?.name || 'Estudiante',
-        avatar_url: account?.picture_url || null,
-      };
-    });
-  }
-
-  // Load user roles to check for moderation and bypass permission
-  const { data: rolesData } = await client
-    .from('user_roles')
-    .select('role')
-    .eq('id', user.id);
-  const userRoles = rolesData?.map((r) => r.role) || [];
-  const canModerate =
-    userRoles.includes('admin') ||
-    userRoles.includes('administrador') ||
-    userRoles.includes('profesor') ||
-    userRoles.includes('instructor');
-
-  // Check if lesson requires passing a quiz (evaluating blocks)
-  const hasBlocks = blocks && blocks.length > 0;
-  let requiresQuiz = false;
+  // Check if lesson requires passing/submitting a quiz
+  const requiresQuiz = activityIds.length > 0;
   let hasPassedQuiz = false;
-  let activityIds: string[] = [];
 
-  if (directActivity?.id) {
-    requiresQuiz = true;
-    activityIds.push(directActivity.id);
-  }
+  if (requiresQuiz) {
+    let allPassed = true;
+    let hasBlockingActivities = false;
 
-  if (hasBlocks) {
-    blocks!.forEach((block) => {
-      const c = block.content as any;
-      if (block.type === 'activity' && c?.activity_id) {
-        requiresQuiz = true;
-        activityIds.push(c.activity_id);
+    for (const actId of activityIds) {
+      const act = activitiesById.get(actId);
+      if (!act) continue;
+
+      const hasQuestions = act.activity_questions && act.activity_questions.length > 0;
+      if (!hasQuestions) {
+        continue;
       }
-    });
-  }
 
-  if (requiresQuiz && activityIds.length > 0) {
-    // Fetch passing scores and check if they have questions
-    const { data: activitiesData } = await client
-      .from('activities')
-      .select('id, passing_score, type, activity_questions(id)')
-      .in('id', activityIds);
-      
-    // Fetch user attempts
-    const { data: attemptsData } = await client
-      .from('activity_attempts')
-      .select('activity_id, score')
-      .eq('student_id', user.id)
-      .in('activity_id', activityIds);
+      hasBlockingActivities = true;
+      const passingScore = act.passing_score || 0;
+      const attemptsForAct = attemptsByActivity.get(act.id) || [];
+      const passed = attemptsForAct.some((a) => (a.score || 0) >= passingScore);
+      const hasSubmitted = attemptsForAct.length > 0;
 
-    if (activitiesData && attemptsData) {
-      let allPassed = true;
-      let hasBlockingActivities = false;
-
-      for (const act of activitiesData) {
-        // If an activity has no questions, the student cannot submit it, so it shouldn't block
-        const hasQuestions = act.activity_questions && act.activity_questions.length > 0;
-        if (!hasQuestions) {
-          continue; // skip blocking for this activity
-        }
-
-        hasBlockingActivities = true;
-        const passingScore = act.passing_score || 0;
-        const attemptsForAct = attemptsData.filter(a => a.activity_id === act.id);
-        const passed = attemptsForAct.some(a => (a.score || 0) >= passingScore);
-        const hasSubmitted = attemptsForAct.length > 0;
-        
-        // Si el estudiante ya presentó su intento (o aprobó), la lección se considera realizada
-        if (!passed && !hasSubmitted) {
-          allPassed = false;
-          break;
-        }
+      if (!passed && !hasSubmitted) {
+        allPassed = false;
+        break;
       }
-      
-      // If there were blocking activities, we require allPassed. If none were blocking, it's considered passed.
-      hasPassedQuiz = hasBlockingActivities ? allPassed : true;
-    } else {
-      // If we couldn't fetch data, fallback to false if there were activityIds
-      hasPassedQuiz = activityIds.length === 0;
     }
+
+    hasPassedQuiz = hasBlockingActivities ? allPassed : true;
   }
 
   const canMarkAsCompleted = canModerate || !requiresQuiz || hasPassedQuiz;
 
-  // Calculate next lesson
-  const { data: courseModules } = await client
-    .from('course_modules')
-    .select('id, order_index, lessons(id, order_index)')
-    .eq('course_id', courseId)
-    .order('order_index', { ascending: true });
-
+  // Calculate next lesson from shared cached course outline
   let nextLessonId: string | null = null;
+  const courseModules = courseOutlineRes.data?.course_modules;
   if (courseModules) {
-    // Flatten all lessons in order
     const allLessons: { id: string }[] = [];
-    const sortedModules = courseModules.sort((a, b) => a.order_index - b.order_index);
+    const sortedModules = [...courseModules].sort(
+      (a, b) => a.order_index - b.order_index,
+    );
     for (const mod of sortedModules) {
-      const sortedLessons = ((mod.lessons as any[]) || []).sort(
-        (a: any, b: any) => a.order_index - b.order_index,
-      );
+      const sortedLessons = ((mod.lessons as any[]) || [])
+        .filter((l: any) => !l.deleted_at)
+        .sort((a: any, b: any) => a.order_index - b.order_index);
       allLessons.push(...sortedLessons);
     }
     const currentIndex = allLessons.findIndex((l) => l.id === lessonId);
@@ -264,11 +171,11 @@ export default async function LessonPage({
     }
   }
 
-  const lessonAny = lesson as any;
+  const lessonAny = currentLesson as any;
 
   function renderContent() {
     if (hasBlocks) {
-      return blocks!.map((block) => {
+      return blocks.map((block) => {
         const c = block.content as any;
         switch (block.type) {
           case 'video':
@@ -320,7 +227,14 @@ export default async function LessonPage({
                   <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8" />
                   <h3 className="text-lg sm:text-2xl font-bold">Actividad Evaluada</h3>
                 </div>
-                <QuizViewer activityId={c.activity_id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
+                <QuizViewer
+                  activityId={c.activity_id}
+                  courseId={courseId}
+                  lessonId={lessonId}
+                  currentUserId={user.id}
+                  initialActivity={activitiesById.get(c.activity_id)}
+                  initialPastAttempts={attemptsByActivity.get(c.activity_id) || []}
+                />
               </div>
             );
           default:
@@ -490,7 +404,7 @@ export default async function LessonPage({
           <AssignmentSubmission
             courseId={courseId}
             lessonId={lessonId}
-            lessonTitle={lesson.title}
+            lessonTitle={currentLesson.title}
             initialSubmission={initialSubmission}
           />
         </div>
@@ -504,7 +418,14 @@ export default async function LessonPage({
             <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8" />
             <h3 className="text-lg sm:text-2xl font-semibold">Cuestionario</h3>
           </div>
-          <QuizViewer activityId={directActivity.id} courseId={courseId} lessonId={lessonId} currentUserId={user.id} />
+          <QuizViewer
+            activityId={directActivity.id}
+            courseId={courseId}
+            lessonId={lessonId}
+            currentUserId={user.id}
+            initialActivity={activitiesById.get(directActivity.id)}
+            initialPastAttempts={attemptsByActivity.get(directActivity.id) || []}
+          />
         </div>
       );
     }
@@ -525,12 +446,12 @@ export default async function LessonPage({
       {/* Header */}
       <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 sm:py-6 lg:p-10 border-b mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground leading-tight">{lesson.title}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground leading-tight">{currentLesson.title}</h1>
           <div className="w-full sm:w-auto">
-            <CompleteLessonButton 
-              courseId={courseId} 
-              lessonId={lessonId} 
-              isAlreadyCompleted={isCompleted} 
+            <CompleteLessonButton
+              courseId={courseId}
+              lessonId={lessonId}
+              isAlreadyCompleted={isCompleted}
               isDisabled={!canMarkAsCompleted}
               disabledReason="Debes aprobar el cuestionario de esta lección para poder completarla."
             />
@@ -554,7 +475,7 @@ export default async function LessonPage({
         </div>
 
         {/* Notes section */}
-        <LessonNotes lessonId={lessonId} initialNotes={(notes as any) || []} />
+        <LessonNotes lessonId={lessonId} initialNotes={notes as any} />
 
         {/* Comments section */}
         <LessonComments

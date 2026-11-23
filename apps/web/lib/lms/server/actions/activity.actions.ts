@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { enhanceAction } from '@kit/next/actions';
 import { requireUser } from '@kit/supabase/require-user';
@@ -37,6 +37,7 @@ export const createActivityAction = enhanceAction(
       console.error('Error updating course progress on activity create:', err);
     }
 
+    revalidateTag('lms-content');
     return activity;
   },
   {
@@ -56,6 +57,7 @@ export const updateActivityAction = enhanceAction(
 
     const activity = await service.updateActivity(id, activityData, questions);
 
+    revalidateTag('lms-content');
     return activity;
   },
   {

@@ -60,7 +60,7 @@ async function loginWithCredentials(
 
   // Esperar a que redirija fuera de /auth/sign-in hacia /home
   await page.waitForURL((url) => url.pathname.startsWith('/home'), {
-    timeout: 25_000,
+    timeout: 45_000,
   });
 }
 

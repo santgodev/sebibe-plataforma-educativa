@@ -27,6 +27,7 @@
     "test:smoke:ui": "pnpm --filter web-e2e test:smoke:ui",
     "test:evaluation": "pnpm --filter web-e2e test:evaluation",
     "test:evaluation:ui": "pnpm --filter web-e2e test:evaluation:ui",
+    "test:load": "pnpm --filter web-e2e test:load",
     "update": "pnpm update -r",
     "syncpack:list": "pnpm dlx syncpack list-mismatches",
     "syncpack:fix": "pnpm dlx syncpack fix-mismatches",

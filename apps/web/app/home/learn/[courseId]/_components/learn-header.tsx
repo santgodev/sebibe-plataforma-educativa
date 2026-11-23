@@ -72,6 +72,7 @@ export function LearnHeader({
               <div className="flex items-center justify-between mb-2">
                 <Link
                   href="/home/courses"
+                  prefetch={false}
                   onClick={() => setMobileSheetOpen(false)}
                   className="text-muted-foreground hover:text-primary text-xs font-medium flex items-center gap-1 transition-colors"
                 >
@@ -118,6 +119,7 @@ export function LearnHeader({
         <div className="hidden md:flex items-center gap-2">
           <Link
             href="/home/courses"
+            prefetch={false}
             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -132,6 +134,7 @@ export function LearnHeader({
         {/* Quick mobile link to catalog */}
         <Link
           href="/home/courses"
+          prefetch={false}
           className="md:hidden text-muted-foreground hover:text-foreground text-xs flex items-center gap-1 transition-colors px-2 py-1 rounded bg-muted/40 hover:bg-muted"
           title="Volver al catálogo"
         >
@@ -148,7 +151,7 @@ export function LearnHeader({
           asChild
           className="text-foreground gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 text-xs font-semibold"
         >
-          <Link href={`/home/learn/${courseId}/present`}>
+          <Link href={`/home/learn/${courseId}/present`} prefetch={false}>
             <Presentation className="h-4 w-4 text-primary" />
             <span className="hidden sm:inline">Presentar</span>
           </Link>

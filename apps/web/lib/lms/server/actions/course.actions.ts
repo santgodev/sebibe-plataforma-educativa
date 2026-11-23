@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { z } from 'zod';
 
@@ -51,6 +51,7 @@ export const createCourseAction = enhanceAction(
     });
 
     revalidatePath('/home/admin-courses');
+    revalidateTag('lms-content');
     return course;
   },
   {
@@ -68,6 +69,7 @@ export const publishCourseAction = enhanceAction(
     const course = await service.publishCourse(id);
     revalidatePath('/home/admin-courses');
     revalidatePath(`/home/admin-courses/${id}`);
+    revalidateTag('lms-content');
 
     return course;
   },
@@ -86,6 +88,7 @@ export const unpublishCourseAction = enhanceAction(
     const course = await service.updateCourse(id, { status: 'draft' });
     revalidatePath('/home/admin-courses');
     revalidatePath(`/home/admin-courses/${id}`);
+    revalidateTag('lms-content');
 
     return course;
   },
@@ -140,6 +143,7 @@ export const updateCourseAction = enhanceAction(
 
     revalidatePath('/home/admin-courses');
     revalidatePath(`/home/admin-courses/${id}`);
+    revalidateTag('lms-content');
 
     return course;
   },

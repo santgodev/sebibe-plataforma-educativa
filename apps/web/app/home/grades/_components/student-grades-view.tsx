@@ -1,44 +1,32 @@
 import { Award, BookOpen, Clock, CheckCircle2 } from 'lucide-react';
-import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
+import {
+  getCachedActivitiesCatalog,
+  getCachedCoursesCatalog,
+  getStudentGradesState,
+} from '~/home/learn/[courseId]/_lib/learn-data.server';
 import { StudentCoursesSection } from '~/home/admin-users/[id]/_components/student-courses-section';
 import { ViewSubmissionDialog } from '~/home/admin-users/[id]/_components/view-submission-dialog';
 import { calculateBestScoresAverage } from '~/home/admin-users/_lib/student-utils';
 
-export async function StudentGradesView({ userId }: { userId: string }) {
-  const adminClient = getSupabaseServerAdminClient();
+export async function StudentGradesView({ userId: _userId }: { userId: string }) {
+  // 1 single lightweight per-student RPC + shared cached catalogs (0 DB hits when warm)
+  const [gradesState, allCatalogCourses, allActivitiesCatalog] = await Promise.all([
+    getStudentGradesState(),
+    getCachedCoursesCatalog(),
+    getCachedActivitiesCatalog(),
+  ]);
 
-  // 1. Fetch enrolled courses for the student
-  const { data: enrollments } = await adminClient
-    .from('course_enrollments')
-    .select('course_id, enrolled_at')
-    .eq('student_id', userId);
+  const activitiesById = new Map<string, any>();
+  for (const act of allActivitiesCatalog || []) {
+    activitiesById.set(act.id, act);
+  }
 
-  const enrolledCourseIds = (enrollments || []).map((e) => e.course_id);
-
-  // 2. Fetch all evaluation attempts for this student with full question and answer data
-  const { data: rawAttempts } = await adminClient
-    .from('activity_attempts')
-    .select(`
-      id, score, status, completed_at, attempt_number, file_url, answers_json,
-      activities (
-        id, title, type, passing_score, course_id, lesson_id,
-        activity_questions (
-          id, question_text, type, order_index,
-          activity_answers ( id, answer_text, is_correct, order_index )
-        ),
-        lessons (
-          id, title,
-          course_modules (
-            id, title, course_id,
-            courses ( id, title, thumbnail_url, short_description )
-          )
-        )
-      )
-    `)
-    .eq('student_id', userId)
-    .order('completed_at', { ascending: false });
-
-  const attempts = rawAttempts || [];
+  const enrollments = gradesState.enrollments || [];
+  const enrolledCourseIds = enrollments.map((e) => e.course_id);
+  const attempts = (gradesState.attempts || []).map((a) => ({
+    ...a,
+    activities: activitiesById.get(a.activity_id) || null,
+  }));
 
   // 3. Collect all distinct courses (enrolled + courses with attempts)
   const allCourseIds = new Set<string>(enrolledCourseIds);
@@ -51,29 +39,16 @@ export async function StudentGradesView({ userId }: { userId: string }) {
     if (cId) allCourseIds.add(cId);
   });
 
-  // 4. Fetch lesson progress for completion stats
-  const { data: progress } = await adminClient
-    .from('lesson_progress')
-    .select('lesson_id')
-    .eq('student_id', userId);
+  const completedLessonIds = gradesState.completed_lesson_ids || [];
 
-  const completedLessonIds = (progress || []).map((p) => p.lesson_id);
-
-  // 5. Build courses with details and evaluations
+  // 5. Build courses with details and evaluations from shared cached catalog
   let coursesWithDetails: any[] = [];
   if (allCourseIds.size > 0) {
-    const { data: courses } = await adminClient
-      .from('courses')
-      .select(`
-        id, title, thumbnail_url, short_description,
-        course_modules (
-          id, title,
-          lessons ( id, title )
-        )
-      `)
-      .in('id', Array.from(allCourseIds));
+    const courses = (allCatalogCourses || []).filter((c: any) =>
+      allCourseIds.has(c.id),
+    );
 
-    coursesWithDetails = (courses || []).map((course) => {
+    coursesWithDetails = courses.map((course: any) => {
       let totalLessons = 0;
       let completedLessons = 0;
 

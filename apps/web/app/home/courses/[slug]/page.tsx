@@ -127,6 +127,7 @@ export default async function CourseLandingPage({
               <div className="pt-2 sm:pt-4">
                 <Link
                   href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
+                  prefetch={false}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3.5 sm:py-4 text-base sm:text-lg font-bold transition-colors"
                 >
                   <PlayCircle className="h-5 w-5" />
@@ -227,6 +228,7 @@ export default async function CourseLandingPage({
                               <div className="flex-1">
                                 <Link
                                   href={`/home/learn/${course.id}/lesson/${lesson.id}`}
+                                  prefetch={false}
                                   className={`group-hover:text-primary block font-medium transition-colors ${completedLessonIds.has(lesson.id) ? 'text-muted-foreground line-through decoration-muted-foreground/30' : 'text-slate-900'}`}
                                 >
                                   {lesson.title}
@@ -278,6 +280,7 @@ export default async function CourseLandingPage({
             {firstLessonId && (
               <Link
                 href={`/home/learn/${course.id}/lesson/${firstLessonId}`}
+                prefetch={false}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground block w-full rounded-lg px-4 py-3 text-center font-bold transition-all"
               >
                 {progressPercentage > 0 ? 'Continuar materia' : 'Comenzar ahora'}

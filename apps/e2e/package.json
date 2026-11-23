@@ -10,7 +10,8 @@
     "test:smoke": "playwright test tests/smoke/ --workers=1 --reporter=list",
     "test:smoke:ui": "playwright test tests/smoke/ --ui",
     "test:evaluation": "playwright test tests/smoke/student-evaluation.spec.ts --workers=1 --reporter=list",
-    "test:evaluation:ui": "playwright test tests/smoke/student-evaluation.spec.ts --ui"
+    "test:evaluation:ui": "playwright test tests/smoke/student-evaluation.spec.ts --ui",
+    "test:load": "playwright test tests/load/load-test-50-students.spec.ts --workers=1 --reporter=list"
   },
   "keywords": [],
   "author": "",

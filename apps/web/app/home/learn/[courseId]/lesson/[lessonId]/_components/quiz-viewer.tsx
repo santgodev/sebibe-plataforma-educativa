@@ -476,25 +476,87 @@ function OrderStepsViewer({
   );
 }
 
+function prepareActivity(rawActivity: any, seed: string) {
+  if (!rawActivity) return rawActivity;
+
+  const cloned = {
+    ...rawActivity,
+    activity_questions: (rawActivity.activity_questions || []).map((q: any) => ({
+      ...q,
+      activity_answers: [...(q.activity_answers || [])],
+    })),
+  };
+
+  if (cloned.randomize_order) {
+    cloned.activity_questions = seededShuffle(
+      cloned.activity_questions,
+      `${seed}-questions`,
+    );
+
+    cloned.activity_questions.forEach((q: any) => {
+      if (q.activity_answers && q.activity_answers.length > 0) {
+        if (
+          q.type === 'single_choice' ||
+          q.type === 'multiple_choice' ||
+          q.type === 'matching'
+        ) {
+          q.activity_answers = seededShuffle(
+            q.activity_answers,
+            `${seed}-answers-${q.id}`,
+          );
+        } else if (q.type !== 'order_steps') {
+          q.activity_answers.sort(
+            (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0),
+          );
+        }
+      }
+    });
+  } else {
+    cloned.activity_questions.sort(
+      (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0),
+    );
+    cloned.activity_questions.forEach((q: any) => {
+      if (q.activity_answers) {
+        q.activity_answers.sort(
+          (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0),
+        );
+      }
+    });
+  }
+
+  return cloned;
+}
+
 export function QuizViewer({
   activityId,
   courseId,
   lessonId,
   currentUserId,
+  initialActivity,
+  initialPastAttempts,
 }: {
   activityId: string;
   courseId: string;
   lessonId?: string;
   currentUserId?: string;
+  initialActivity?: any;
+  initialPastAttempts?: any[];
 }) {
   const router = useRouter();
-  const [activity, setActivity] = useState<any>(null);
+  const resolvedInitialAttempts = initialPastAttempts ?? [];
+  const initialSeed = initialActivity
+    ? `${currentUserId || 'student'}-${activityId}-${resolvedInitialAttempts.length}`
+    : '';
+
+  const [activity, setActivity] = useState<any>(() =>
+    initialActivity ? prepareActivity(initialActivity, initialSeed) : null,
+  );
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [result, setResult] = useState<any>(null);
   const [isPending, startTransition] = useTransition();
   const [isStarted, setIsStarted] = useState(false);
-  const [pastAttempts, setPastAttempts] = useState<any[]>([]);
-  const [studentSeed, setStudentSeed] = useState<string>('');
+  const [pastAttempts, setPastAttempts] = useState<any[]>(resolvedInitialAttempts);
+  const [studentSeed, setStudentSeed] = useState<string>(initialSeed);
   const [timeLeftSeconds, setTimeLeftSeconds] = useState<number | null>(null);
 
   // Control de seguridad e integridad (detección de ventanas y pantalla completa)
@@ -509,6 +571,16 @@ export function QuizViewer({
   }, [answers]);
 
   useEffect(() => {
+    if (initialActivity) {
+      const uid = currentUserId || 'student';
+      const attempts = initialPastAttempts ?? [];
+      const seed = `${uid}-${activityId}-${attempts.length}`;
+      setStudentSeed(seed);
+      setActivity(prepareActivity(initialActivity, seed));
+      setPastAttempts(attempts);
+      return;
+    }
+
     startTransition(async () => {
       try {
         const [data, attemptsData] = await Promise.all([
@@ -520,39 +592,7 @@ export function QuizViewer({
         const seed = `${uid}-${activityId}-${attemptsData?.length || 0}`;
         setStudentSeed(seed);
 
-        if (data?.activity_questions) {
-          if (data.randomize_order) {
-            // Shuffle questions deterministically for this student
-            data.activity_questions = seededShuffle(
-              data.activity_questions,
-              `${seed}-questions`
-            );
-
-            // Shuffle answer options inside each question for this student
-            data.activity_questions.forEach((q: any) => {
-              if (q.activity_answers && q.activity_answers.length > 0) {
-                if (q.type === 'single_choice' || q.type === 'multiple_choice' || q.type === 'matching') {
-                  q.activity_answers = seededShuffle(
-                    q.activity_answers,
-                    `${seed}-answers-${q.id}`
-                  );
-                } else if (q.type !== 'order_steps') {
-                  q.activity_answers.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
-                }
-              }
-            });
-          } else {
-            // Default sequential order
-            data.activity_questions.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
-            data.activity_questions.forEach((q: any) => {
-              if (q.activity_answers) {
-                q.activity_answers.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
-              }
-            });
-          }
-        }
-
-        setActivity(data);
+        setActivity(prepareActivity(data, seed));
         if (attemptsData && attemptsData.length > 0) {
           setPastAttempts(attemptsData);
         }
@@ -561,7 +601,7 @@ export function QuizViewer({
         toast.error('Error al cargar el cuestionario');
       }
     });
-  }, [activityId, currentUserId]);
+  }, [activityId, currentUserId, initialActivity, initialPastAttempts]);
 
   const handleSelect = (questionId: string, value: any, isMultiple = false) => {
     if (result) return;
