@@ -16,12 +16,15 @@ import {
 import {
   FileText,
   Download,
+  ExternalLink,
   Eye,
   Award,
   CheckCircle2,
   XCircle,
   HelpCircle,
   Check,
+  Link2,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@kit/ui/utils';
@@ -84,6 +87,62 @@ export function ViewSubmissionDialog({
   const [gradeInput, setGradeInput] = useState<string>(initialGrade5);
   const [currentScore, setCurrentScore] = useState<number | null>(attempt?.score ?? null);
 
+  const answersObj =
+    attempt.answers_json &&
+    typeof attempt.answers_json === 'object' &&
+    !Array.isArray(attempt.answers_json)
+      ? (attempt.answers_json as Record<string, any>)
+      : null;
+
+  const isAssignmentSubmission =
+    activity?.type === 'practical' ||
+    Boolean(
+      answersObj &&
+        ('files' in answersObj || 'links' in answersObj || 'comment' in answersObj),
+    );
+
+  const rawFiles: Array<{ name?: string; url?: string }> = Array.isArray(
+    answersObj?.files,
+  )
+    ? answersObj.files
+    : [];
+  const validFiles = rawFiles.filter(
+    (f): f is { name?: string; url: string } =>
+      Boolean(f && typeof f.url === 'string' && f.url.trim()),
+  );
+  const assignmentFiles =
+    validFiles.length > 0
+      ? validFiles.map((f, idx) => ({
+          name: f.name?.trim() || `Archivo adjunto ${idx + 1}`,
+          url: f.url.trim(),
+        }))
+      : attempt.file_url
+        ? [{ name: 'Documento adjunto', url: attempt.file_url }]
+        : [];
+
+  const rawLinks: Array<{ label?: string; url?: string }> = Array.isArray(
+    answersObj?.links,
+  )
+    ? answersObj.links
+    : [];
+  const assignmentLinks = rawLinks
+    .filter(
+      (l): l is { label?: string; url: string } =>
+        Boolean(l && typeof l.url === 'string' && l.url.trim()),
+    )
+    .map((l, idx) => ({
+      label: l.label?.trim() || `Enlace ${idx + 1}`,
+      url: l.url.trim(),
+    }));
+
+  const assignmentComment =
+    typeof answersObj?.comment === 'string' ? answersObj.comment.trim() : '';
+
+  const hasAssignmentContent =
+    assignmentFiles.length > 0 ||
+    assignmentLinks.length > 0 ||
+    assignmentComment.length > 0;
+
   // Activity questions state (preloaded or fetched on demand)
   const [questions, setQuestions] = useState<ActivityQuestion[]>(
     activity?.activity_questions || []
@@ -92,6 +151,7 @@ export function ViewSubmissionDialog({
 
   // Sync questions from attempt when it changes or fetch if missing
   useEffect(() => {
+    if (isAssignmentSubmission) return;
     if (activity?.activity_questions && activity.activity_questions.length > 0) {
       setQuestions(activity.activity_questions);
     } else if (open && activity?.id && (!questions || questions.length === 0)) {
@@ -111,7 +171,7 @@ export function ViewSubmissionDialog({
           setIsLoadingQuestions(false);
         });
     }
-  }, [open, activity, questions.length]);
+  }, [open, activity, questions.length, isAssignmentSubmission]);
 
   const hasFile = !!attempt.file_url;
   const hasAnswers = !!(attempt.answers_json && Object.keys(attempt.answers_json).length > 0);
@@ -165,6 +225,8 @@ export function ViewSubmissionDialog({
     }
     if (typeof val === 'object') {
       if (val.text) return String(val.text);
+      if (val.name) return String(val.name);
+      if (val.label) return String(val.label);
       if (val.id) {
         const match = answersMap.get(val.id);
         if (match) return match.text;
@@ -243,416 +305,516 @@ export function ViewSubmissionDialog({
         </DialogHeader>
 
         <div className="py-2 space-y-5">
-          {/* Archivo adjunto si lo hubiere */}
-          {hasFile && (
-            <div className="bg-muted/20 p-4 rounded-lg border flex flex-col gap-2.5">
-              <h4 className="font-semibold text-sm text-foreground">Archivo Adjunto</h4>
-              <p className="text-xs text-muted-foreground">
-                El estudiante subió un archivo o documento para esta actividad.
-              </p>
-              <Button
-                size="sm"
-                className="w-full gap-2 font-semibold"
-                onClick={() => window.open(attempt.file_url as string, '_blank')}
-              >
-                <Download className="h-4 w-4" />
-                Descargar / Ver Archivo Adjunto
-              </Button>
-            </div>
-          )}
-
-          {/* Respuestas del estudiante con texto resuelto */}
-          {hasAnswers && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-1 border-b">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-foreground">
-                  Respuestas del Estudiante
-                </h4>
-                {isLoadingQuestions && (
-                  <span className="text-[11px] text-muted-foreground animate-pulse">
-                    Cargando enunciados...
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {/* 1. Render all questions that match the activity */}
-                {sortedQuestions.length > 0 ? (
-                  sortedQuestions.map((q, idx) => {
-                    renderedQuestionIds.add(q.id);
-                    const studentAnswer = attempt.answers_json ? attempt.answers_json[q.id] : null;
-
-                    // Question type label
-                    const typeLabel =
-                      q.type === 'single_choice'
-                        ? 'Opción Única'
-                        : q.type === 'multiple_choice'
-                        ? 'Selección Múltiple'
-                        : q.type === 'true_false'
-                        ? 'Verdadero / Falso'
-                        : q.type === 'fill_blank'
-                        ? 'Completar Espacios'
-                        : q.type === 'open_text'
-                        ? 'Pregunta Abierta'
-                        : q.type === 'matching'
-                        ? 'Emparejamiento'
-                        : q.type === 'order_steps'
-                        ? 'Ordenar Pasos'
-                        : 'Pregunta';
-
-                    return (
-                      <div
-                        key={q.id}
-                        className="p-3.5 sm:p-4 bg-muted/10 rounded-xl border space-y-2.5 shadow-2xs hover:border-primary/30 transition-colors"
-                      >
-                        {/* Enunciado de la Pregunta */}
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
-                          <div className="flex items-start gap-2 flex-1 min-w-0">
-                            <span className="font-bold text-sm text-primary shrink-0 mt-0.5">
-                              {idx + 1}.
+          {isAssignmentSubmission ? (
+            hasAssignmentContent ? (
+              <div className="space-y-4">
+                {assignmentFiles.length > 0 && (
+                  <div className="space-y-2.5">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-foreground">
+                      Archivos Adjuntos ({assignmentFiles.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {assignmentFiles.map((file, idx) => (
+                        <div
+                          key={`${file.url}-${idx}`}
+                          className="bg-muted/20 p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <span className="text-sm font-medium text-foreground truncate">
+                              {file.name}
                             </span>
-                            <p className="font-semibold text-sm text-foreground leading-snug break-words">
-                              {q.type === 'fill_blank' && q.question_text?.includes('[___]')
-                                ? 'Completa la siguiente frase:'
-                                : q.question_text}
-                            </p>
                           </div>
-                          <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0 self-start">
-                            {typeLabel}
-                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            className="gap-1.5 font-semibold shrink-0 w-full sm:w-auto"
+                          >
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Abrir / Descargar
+                            </a>
+                          </Button>
                         </div>
-
-                        {/* Respuesta del estudiante según el tipo */}
-                        <div className="pl-0 sm:pl-5 text-sm">
-                          {/* CASO: OPCIÓN ÚNICA Y VERDADERO/FALSO */}
-                          {(q.type === 'single_choice' || q.type === 'true_false') && (() => {
-                            if (studentAnswer === null || studentAnswer === undefined) {
-                              return <span className="italic text-muted-foreground text-xs">No respondió.</span>;
-                            }
-                            const showCorrectness =
-                              !isReadOnly ||
-                              (Boolean(activity?.automatic_feedback_enabled) &&
-                                attempt.status !== 'needs_grading');
-                            const ansInfo = answersMap.get(studentAnswer);
-                            const answerText = ansInfo ? ansInfo.text : resolveText(studentAnswer);
-                            const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
-
-                            // Find expected correct answer
-                            const correctAnswer = showCorrectness
-                              ? q.activity_answers?.find((a) => a.is_correct)
-                              : null;
-
-                            return (
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                                  Opción elegida:
-                                </span>
-                                <div
-                                  className={cn(
-                                    'p-2.5 sm:p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold',
-                                    isCorrect === true
-                                      ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
-                                      : isCorrect === false
-                                      ? 'bg-red-50/70 border-red-300 text-red-900 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300'
-                                      : 'bg-background text-foreground'
-                                  )}
-                                >
-                                  <div className="flex items-start sm:items-center gap-2 min-w-0">
-                                    {isCorrect === true && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />}
-                                    {isCorrect === false && <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />}
-                                    <span className="text-sm font-bold break-words">{answerText}</span>
-                                  </div>
-                                  {isCorrect !== undefined && (
-                                    <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        'text-[10px] font-bold self-start sm:self-center shrink-0',
-                                        isCorrect ? 'border-emerald-400 text-emerald-700' : 'border-red-400 text-red-700'
-                                      )}
-                                    >
-                                      {isCorrect ? 'Correcta' : 'Incorrecta'}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {isCorrect === false && correctAnswer && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Respuesta esperada: <strong>{correctAnswer.answer_text}</strong>
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          {/* CASO: SELECCIÓN MÚLTIPLE */}
-                          {q.type === 'multiple_choice' && (() => {
-                            const selectedItems = Array.isArray(studentAnswer)
-                              ? studentAnswer
-                              : studentAnswer !== null && studentAnswer !== undefined
-                              ? [studentAnswer]
-                              : [];
-
-                            if (selectedItems.length === 0) {
-                              return <span className="italic text-muted-foreground text-xs">No seleccionó opciones.</span>;
-                            }
-
-                            return (
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                                  Opciones seleccionadas por el estudiante:
-                                </span>
-                                <div className="flex flex-wrap gap-2">
-                                  {selectedItems.map((item: any, sIdx: number) => {
-                                    const showCorrectness =
-                                      !isReadOnly ||
-                                      (Boolean(activity?.automatic_feedback_enabled) &&
-                                        attempt.status !== 'needs_grading');
-                                    const ansInfo = answersMap.get(item);
-                                    const text = ansInfo ? ansInfo.text : resolveText(item);
-                                    const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
-
-                                    return (
-                                      <Badge
-                                        key={sIdx}
-                                        variant="outline"
-                                        className={cn(
-                                          'text-xs py-1 px-2.5 font-semibold flex items-center gap-1.5 shadow-2xs',
-                                          isCorrect === true
-                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                            : isCorrect === false
-                                            ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300'
-                                            : 'bg-background text-foreground'
-                                        )}
-                                      >
-                                        {isCorrect === true && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                                        {isCorrect === false && <XCircle className="w-3.5 h-3.5 text-red-600" />}
-                                        <span>{text}</span>
-                                      </Badge>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                          {/* CASO: COMPLETAR ESPACIOS (FILL_BLANK) */}
-                          {q.type === 'fill_blank' && (() => {
-                            const parts = (q.question_text || '').split('[___]');
-                            const numSpaces = parts.length > 1 ? parts.length - 1 : 1;
-
-                            const getBlankValue = (idx: number): string => {
-                              let raw: any = '';
-                              if (Array.isArray(studentAnswer)) {
-                                raw = studentAnswer[idx];
-                              } else if (typeof studentAnswer === 'object' && studentAnswer !== null) {
-                                raw = studentAnswer[idx] ?? studentAnswer[String(idx)];
-                              } else if (typeof studentAnswer === 'string' && idx === 0) {
-                                raw = studentAnswer;
-                              }
-                              return resolveText(raw);
-                            };
-
-                            return (
-                              <div className="space-y-3">
-                                {/* Frase reconstruida con los textos del estudiante */}
-                                {parts.length > 1 && (
-                                  <div className="p-3 bg-background border rounded-lg text-sm leading-relaxed text-foreground font-medium shadow-2xs">
-                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                                      Frase completada por el estudiante:
-                                    </span>
-                                    <p className="leading-relaxed">
-                                      {parts.map((part, pIdx) => {
-                                        const filled = getBlankValue(pIdx);
-                                        return (
-                                          <span key={pIdx}>
-                                            {part}
-                                            {pIdx < parts.length - 1 && (
-                                              <span
-                                                className={cn(
-                                                  'inline-block px-2 py-0.5 mx-1 rounded font-bold border text-xs',
-                                                  filled.trim()
-                                                    ? 'bg-primary/10 text-primary border-primary/30'
-                                                    : 'bg-muted text-muted-foreground border-dashed italic'
-                                                )}
-                                              >
-                                                {filled.trim() ? filled : `[Espacio ${pIdx + 1} vacío]`}
-                                              </span>
-                                            )}
-                                          </span>
-                                        );
-                                      })}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {/* Desglose espacio por espacio */}
-                                <div className="grid grid-cols-1 gap-2">
-                                  {Array.from({ length: numSpaces }).map((_, bIdx) => {
-                                    const filled = getBlankValue(bIdx);
-                                    const refAnswer = q.activity_answers?.[bIdx]?.answer_text;
-
-                                    return (
-                                      <div
-                                        key={bIdx}
-                                        className="p-2.5 bg-background border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="outline" className="font-mono text-[10px] font-bold">
-                                            Espacio #{bIdx + 1}
-                                          </Badge>
-                                          <span className="text-foreground font-bold text-sm">
-                                            {filled.trim() ? (
-                                              `"${filled}"`
-                                            ) : (
-                                              <span className="italic font-normal text-muted-foreground">Sin responder</span>
-                                            )}
-                                          </span>
-                                        </div>
-
-                                        {refAnswer &&
-                                          (!isReadOnly ||
-                                            (Boolean(activity?.automatic_feedback_enabled) &&
-                                              attempt.status !== 'needs_grading')) && (
-                                            <div className="text-muted-foreground text-xs">
-                                              Referencia esperada: <strong className="text-foreground">{refAnswer}</strong>
-                                            </div>
-                                          )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                          {/* CASO: PREGUNTA ABIERTA */}
-                          {q.type === 'open_text' && (
-                            <div className="space-y-1.5">
-                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                                Respuesta escrita:
-                              </span>
-                              <div className="p-3 bg-background border rounded-lg text-sm text-foreground leading-relaxed whitespace-pre-wrap shadow-2xs">
-                                {studentAnswer ? (
-                                  studentAnswer
-                                ) : (
-                                  <span className="italic text-muted-foreground">El estudiante no escribió respuesta.</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* CASO: EMPAREJAR (MATCHING) */}
-                          {q.type === 'matching' && (
-                            <div className="space-y-1.5">
-                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                                Emparejamientos realizados:
-                              </span>
-                              <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
-                                {q.activity_answers?.map((a) => {
-                                  const [concept, ...rest] = (a.answer_text || '').split('|').map((s) => s.trim());
-                                  const expectedDef = rest.join('|').trim();
-                                  const studentChoiceId =
-                                    typeof studentAnswer === 'object' && studentAnswer !== null
-                                      ? studentAnswer[a.id] || studentAnswer[concept]
-                                      : 'Sin responder';
-                                  const studentChoiceText = resolveText(studentChoiceId);
-
-                                  return (
-                                    <div
-                                      key={a.id}
-                                      className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b last:border-0 gap-1 sm:gap-2"
-                                    >
-                                      <span className="font-semibold text-foreground break-words">{concept}</span>
-                                      <span className="text-muted-foreground hidden sm:inline shrink-0">➔</span>
-                                      <span className="font-medium text-primary sm:text-foreground break-words">
-                                        <span className="sm:hidden text-muted-foreground mr-1">➔</span>
-                                        {studentChoiceText}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* CASO: ORDENAR PASOS */}
-                          {q.type === 'order_steps' && (
-                            <div className="space-y-1.5">
-                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                                Secuencia organizada:
-                              </span>
-                              <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
-                                {Array.isArray(studentAnswer) && studentAnswer.length > 0 ? (
-                                  studentAnswer.map((stepId: any, sIdx: number) => {
-                                    const stepText = resolveText(stepId);
-                                    return (
-                                      <div key={sIdx} className="p-2 rounded-lg border bg-muted/10 flex items-start justify-between gap-2.5">
-                                        <span className="font-medium text-foreground break-words flex-1 leading-snug">{stepText}</span>
-                                        <Badge variant="outline" className="font-mono text-[10px] shrink-0 font-bold">
-                                          Paso {sIdx + 1}
-                                        </Badge>
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <span className="italic text-muted-foreground">No ordenó los pasos.</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  /* Fallback si no hay preguntas estructuradas cargadas aún */
-                  <div className="space-y-3">
-                    {Object.entries(attempt.answers_json).map(([qId, answer]: [string, any], idx) => {
-                      // Attempt to resolve answer text even without questions
-                      const displayAnswer = Array.isArray(answer)
-                        ? answer.map((item) => resolveText(item)).join('  •  ')
-                        : resolveText(answer);
-
-                      return (
-                        <div key={qId} className="p-3 bg-muted/10 rounded-lg border text-xs space-y-1">
-                          <span className="font-semibold text-muted-foreground block text-xs">
-                            Pregunta {idx + 1}
-                          </span>
-                          <p className="font-medium text-sm text-foreground whitespace-pre-wrap">
-                            {displayAnswer}
-                          </p>
-                        </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* 2. Any answers in answers_json not accounted for in sortedQuestions */}
-                {Object.entries(attempt.answers_json)
-                  .filter(([qId]) => !renderedQuestionIds.has(qId))
-                  .map(([qId, answer]: [string, any], extraIdx) => {
-                    const displayAnswer = Array.isArray(answer)
-                      ? answer.map((item) => resolveText(item)).join('  •  ')
-                      : resolveText(answer);
+                {assignmentLinks.length > 0 && (
+                  <div className="space-y-2.5">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-foreground">
+                      Enlaces Entregados ({assignmentLinks.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {assignmentLinks.map((link, idx) => (
+                        <div
+                          key={`${link.url}-${idx}`}
+                          className="bg-muted/20 p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Link2 className="h-4 w-4 text-primary shrink-0" />
+                            <span className="text-sm font-medium text-foreground truncate">
+                              {link.label}
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            className="gap-1.5 font-semibold shrink-0 w-full sm:w-auto"
+                          >
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Abrir enlace
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                    return (
-                      <div key={qId} className="p-3 bg-muted/10 rounded-lg border text-xs space-y-1">
-                        <span className="font-semibold text-muted-foreground block text-xs">
-                          Pregunta Adicional {extraIdx + 1}
-                        </span>
-                        <p className="font-medium text-sm text-foreground whitespace-pre-wrap">
-                          {displayAnswer}
-                        </p>
-                      </div>
-                    );
-                  })}
+                {assignmentComment.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                      Comentario del Estudiante
+                    </h4>
+                    <div className="p-3.5 bg-muted/20 border rounded-lg text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                      {assignmentComment}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="bg-muted/20 p-4 rounded-lg border text-sm text-muted-foreground text-center">
+                Esta entrega no contiene archivos adjuntos, enlaces ni comentarios guardados para previsualizar.
+              </div>
+            )
+          ) : (
+            <>
+              {/* Archivo adjunto si lo hubiere */}
+              {hasFile && (
+                <div className="bg-muted/20 p-4 rounded-lg border flex flex-col gap-2.5">
+                  <h4 className="font-semibold text-sm text-foreground">Archivo Adjunto</h4>
+                  <p className="text-xs text-muted-foreground">
+                    El estudiante subió un archivo o documento para esta actividad.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="w-full gap-2 font-semibold"
+                    onClick={() => window.open(attempt.file_url as string, '_blank')}
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar / Ver Archivo Adjunto
+                  </Button>
+                </div>
+              )}
 
-          {!hasFile && !hasAnswers && (
-            <div className="bg-muted/20 p-4 rounded-lg border text-sm text-muted-foreground text-center">
-              Esta entrega no contiene archivos adjuntos ni respuestas guardadas para previsualizar. Puedes ajustar o validar la calificación a continuación.
-            </div>
+              {/* Respuestas del estudiante con texto resuelto */}
+              {hasAnswers && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-foreground">
+                      Respuestas del Estudiante
+                    </h4>
+                    {isLoadingQuestions && (
+                      <span className="text-[11px] text-muted-foreground animate-pulse">
+                        Cargando enunciados...
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* 1. Render all questions that match the activity */}
+                    {sortedQuestions.length > 0 ? (
+                      sortedQuestions.map((q, idx) => {
+                        renderedQuestionIds.add(q.id);
+                        const studentAnswer = attempt.answers_json ? attempt.answers_json[q.id] : null;
+
+                        // Question type label
+                        const typeLabel =
+                          q.type === 'single_choice'
+                            ? 'Opción Única'
+                            : q.type === 'multiple_choice'
+                            ? 'Selección Múltiple'
+                            : q.type === 'true_false'
+                            ? 'Verdadero / Falso'
+                            : q.type === 'fill_blank'
+                            ? 'Completar Espacios'
+                            : q.type === 'open_text'
+                            ? 'Pregunta Abierta'
+                            : q.type === 'matching'
+                            ? 'Emparejamiento'
+                            : q.type === 'order_steps'
+                            ? 'Ordenar Pasos'
+                            : 'Pregunta';
+
+                        return (
+                          <div
+                            key={q.id}
+                            className="p-3.5 sm:p-4 bg-muted/10 rounded-xl border space-y-2.5 shadow-2xs hover:border-primary/30 transition-colors"
+                          >
+                            {/* Enunciado de la Pregunta */}
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <span className="font-bold text-sm text-primary shrink-0 mt-0.5">
+                                  {idx + 1}.
+                                </span>
+                                <p className="font-semibold text-sm text-foreground leading-snug break-words">
+                                  {q.type === 'fill_blank' && q.question_text?.includes('[___]')
+                                    ? 'Completa la siguiente frase:'
+                                    : q.question_text}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0 self-start">
+                                {typeLabel}
+                              </Badge>
+                            </div>
+
+                            {/* Respuesta del estudiante según el tipo */}
+                            <div className="pl-0 sm:pl-5 text-sm">
+                              {/* CASO: OPCIÓN ÚNICA Y VERDADERO/FALSO */}
+                              {(q.type === 'single_choice' || q.type === 'true_false') && (() => {
+                                if (studentAnswer === null || studentAnswer === undefined) {
+                                  return <span className="italic text-muted-foreground text-xs">No respondió.</span>;
+                                }
+                                const showCorrectness =
+                                  !isReadOnly ||
+                                  (Boolean(activity?.automatic_feedback_enabled) &&
+                                    attempt.status !== 'needs_grading');
+                                const ansInfo = answersMap.get(studentAnswer);
+                                const answerText = ansInfo ? ansInfo.text : resolveText(studentAnswer);
+                                const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
+
+                                // Find expected correct answer
+                                const correctAnswer = showCorrectness
+                                  ? q.activity_answers?.find((a) => a.is_correct)
+                                  : null;
+
+                                return (
+                                  <div className="space-y-1.5">
+                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                                      Opción elegida:
+                                    </span>
+                                    <div
+                                      className={cn(
+                                        'p-2.5 sm:p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold',
+                                        isCorrect === true
+                                          ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                                          : isCorrect === false
+                                          ? 'bg-red-50/70 border-red-300 text-red-900 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300'
+                                          : 'bg-background text-foreground'
+                                      )}
+                                    >
+                                      <div className="flex items-start sm:items-center gap-2 min-w-0">
+                                        {isCorrect === true && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />}
+                                        {isCorrect === false && <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />}
+                                        <span className="text-sm font-bold break-words">{answerText}</span>
+                                      </div>
+                                      {isCorrect !== undefined && (
+                                        <Badge
+                                          variant="outline"
+                                          className={cn(
+                                            'text-[10px] font-bold self-start sm:self-center shrink-0',
+                                            isCorrect ? 'border-emerald-400 text-emerald-700' : 'border-red-400 text-red-700'
+                                          )}
+                                        >
+                                          {isCorrect ? 'Correcta' : 'Incorrecta'}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {isCorrect === false && correctAnswer && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Respuesta esperada: <strong>{correctAnswer.answer_text}</strong>
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {/* CASO: SELECCIÓN MÚLTIPLE */}
+                              {q.type === 'multiple_choice' && (() => {
+                                const selectedItems = Array.isArray(studentAnswer)
+                                  ? studentAnswer
+                                  : studentAnswer !== null && studentAnswer !== undefined
+                                  ? [studentAnswer]
+                                  : [];
+
+                                if (selectedItems.length === 0) {
+                                  return <span className="italic text-muted-foreground text-xs">No seleccionó opciones.</span>;
+                                }
+
+                                return (
+                                  <div className="space-y-1.5">
+                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                                      Opciones seleccionadas por el estudiante:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {selectedItems.map((item: any, sIdx: number) => {
+                                        const showCorrectness =
+                                          !isReadOnly ||
+                                          (Boolean(activity?.automatic_feedback_enabled) &&
+                                            attempt.status !== 'needs_grading');
+                                        const ansInfo = answersMap.get(item);
+                                        const text = ansInfo ? ansInfo.text : resolveText(item);
+                                        const isCorrect = showCorrectness && ansInfo ? ansInfo.isCorrect : undefined;
+
+                                        return (
+                                          <Badge
+                                            key={sIdx}
+                                            variant="outline"
+                                            className={cn(
+                                              'text-xs py-1 px-2.5 font-semibold flex items-center gap-1.5 shadow-2xs',
+                                              isCorrect === true
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                                : isCorrect === false
+                                                ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300'
+                                                : 'bg-background text-foreground'
+                                            )}
+                                          >
+                                            {isCorrect === true && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                                            {isCorrect === false && <XCircle className="w-3.5 h-3.5 text-red-600" />}
+                                            <span>{text}</span>
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* CASO: COMPLETAR ESPACIOS (FILL_BLANK) */}
+                              {q.type === 'fill_blank' && (() => {
+                                const parts = (q.question_text || '').split('[___]');
+                                const numSpaces = parts.length > 1 ? parts.length - 1 : 1;
+
+                                const getBlankValue = (idx: number): string => {
+                                  let raw: any = '';
+                                  if (Array.isArray(studentAnswer)) {
+                                    raw = studentAnswer[idx];
+                                  } else if (typeof studentAnswer === 'object' && studentAnswer !== null) {
+                                    raw = studentAnswer[idx] ?? studentAnswer[String(idx)];
+                                  } else if (typeof studentAnswer === 'string' && idx === 0) {
+                                    raw = studentAnswer;
+                                  }
+                                  return resolveText(raw);
+                                };
+
+                                return (
+                                  <div className="space-y-3">
+                                    {/* Frase reconstruida con los textos del estudiante */}
+                                    {parts.length > 1 && (
+                                      <div className="p-3 bg-background border rounded-lg text-sm leading-relaxed text-foreground font-medium shadow-2xs">
+                                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                                          Frase completada por el estudiante:
+                                        </span>
+                                        <p className="leading-relaxed">
+                                          {parts.map((part, pIdx) => {
+                                            const filled = getBlankValue(pIdx);
+                                            return (
+                                              <span key={pIdx}>
+                                                {part}
+                                                {pIdx < parts.length - 1 && (
+                                                  <span
+                                                    className={cn(
+                                                      'inline-block px-2 py-0.5 mx-1 rounded font-bold border text-xs',
+                                                      filled.trim()
+                                                        ? 'bg-primary/10 text-primary border-primary/30'
+                                                        : 'bg-muted text-muted-foreground border-dashed italic'
+                                                    )}
+                                                  >
+                                                    {filled.trim() ? filled : `[Espacio ${pIdx + 1} vacío]`}
+                                                  </span>
+                                                )}
+                                              </span>
+                                            );
+                                          })}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Desglose espacio por espacio */}
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {Array.from({ length: numSpaces }).map((_, bIdx) => {
+                                        const filled = getBlankValue(bIdx);
+                                        const refAnswer = q.activity_answers?.[bIdx]?.answer_text;
+
+                                        return (
+                                          <div
+                                            key={bIdx}
+                                            className="p-2.5 bg-background border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="outline" className="font-mono text-[10px] font-bold">
+                                                Espacio #{bIdx + 1}
+                                              </Badge>
+                                              <span className="text-foreground font-bold text-sm">
+                                                {filled.trim() ? (
+                                                  `"${filled}"`
+                                                ) : (
+                                                  <span className="italic font-normal text-muted-foreground">Sin responder</span>
+                                                )}
+                                              </span>
+                                            </div>
+
+                                            {refAnswer &&
+                                              (!isReadOnly ||
+                                                (Boolean(activity?.automatic_feedback_enabled) &&
+                                                  attempt.status !== 'needs_grading')) && (
+                                                <div className="text-muted-foreground text-xs">
+                                                  Referencia esperada: <strong className="text-foreground">{refAnswer}</strong>
+                                                </div>
+                                              )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* CASO: PREGUNTA ABIERTA */}
+                              {q.type === 'open_text' && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                                    Respuesta escrita:
+                                  </span>
+                                  <div className="p-3 bg-background border rounded-lg text-sm text-foreground leading-relaxed whitespace-pre-wrap shadow-2xs">
+                                    {studentAnswer ? (
+                                      studentAnswer
+                                    ) : (
+                                      <span className="italic text-muted-foreground">El estudiante no escribió respuesta.</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* CASO: EMPAREJAR (MATCHING) */}
+                              {q.type === 'matching' && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                                    Emparejamientos realizados:
+                                  </span>
+                                  <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
+                                    {q.activity_answers?.map((a) => {
+                                      const [concept, ...rest] = (a.answer_text || '').split('|').map((s) => s.trim());
+                                      const expectedDef = rest.join('|').trim();
+                                      const studentChoiceId =
+                                        typeof studentAnswer === 'object' && studentAnswer !== null
+                                          ? studentAnswer[a.id] || studentAnswer[concept]
+                                          : 'Sin responder';
+                                      const studentChoiceText = resolveText(studentChoiceId);
+
+                                      return (
+                                        <div
+                                          key={a.id}
+                                          className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b last:border-0 gap-1 sm:gap-2"
+                                        >
+                                          <span className="font-semibold text-foreground break-words">{concept}</span>
+                                          <span className="text-muted-foreground hidden sm:inline shrink-0">➔</span>
+                                          <span className="font-medium text-primary sm:text-foreground break-words">
+                                            <span className="sm:hidden text-muted-foreground mr-1">➔</span>
+                                            {studentChoiceText}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* CASO: ORDENAR PASOS */}
+                              {q.type === 'order_steps' && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                                    Secuencia organizada:
+                                  </span>
+                                  <div className="space-y-2 bg-background p-2.5 rounded-lg border text-xs">
+                                    {Array.isArray(studentAnswer) && studentAnswer.length > 0 ? (
+                                      studentAnswer.map((stepId: any, sIdx: number) => {
+                                        const stepText = resolveText(stepId);
+                                        return (
+                                          <div key={sIdx} className="p-2 rounded-lg border bg-muted/10 flex items-start justify-between gap-2.5">
+                                            <span className="font-medium text-foreground break-words flex-1 leading-snug">{stepText}</span>
+                                            <Badge variant="outline" className="font-mono text-[10px] shrink-0 font-bold">
+                                              Paso {sIdx + 1}
+                                            </Badge>
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <span className="italic text-muted-foreground">No ordenó los pasos.</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      /* Fallback si no hay preguntas estructuradas cargadas aún */
+                      <div className="space-y-3">
+                        {Object.entries(attempt.answers_json).map(([qId, answer]: [string, any], idx) => {
+                          // Attempt to resolve answer text even without questions
+                          const displayAnswer = Array.isArray(answer)
+                            ? answer.map((item) => resolveText(item)).join('  •  ')
+                            : resolveText(answer);
+
+                          return (
+                            <div key={qId} className="p-3 bg-muted/10 rounded-lg border text-xs space-y-1">
+                              <span className="font-semibold text-muted-foreground block text-xs">
+                                Pregunta {idx + 1}
+                              </span>
+                              <p className="font-medium text-sm text-foreground whitespace-pre-wrap">
+                                {displayAnswer}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* 2. Any answers in answers_json not accounted for in sortedQuestions */}
+                    {Object.entries(attempt.answers_json)
+                      .filter(([qId]) => !renderedQuestionIds.has(qId))
+                      .map(([qId, answer]: [string, any], extraIdx) => {
+                        const displayAnswer = Array.isArray(answer)
+                          ? answer.map((item) => resolveText(item)).join('  •  ')
+                          : resolveText(answer);
+
+                        return (
+                          <div key={qId} className="p-3 bg-muted/10 rounded-lg border text-xs space-y-1">
+                            <span className="font-semibold text-muted-foreground block text-xs">
+                              Pregunta Adicional {extraIdx + 1}
+                            </span>
+                            <p className="font-medium text-sm text-foreground whitespace-pre-wrap">
+                              {displayAnswer}
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {!hasFile && !hasAnswers && (
+                <div className="bg-muted/20 p-4 rounded-lg border text-sm text-muted-foreground text-center">
+                  Esta entrega no contiene archivos adjuntos ni respuestas guardadas para previsualizar. Puedes ajustar o validar la calificación a continuación.
+                </div>
+              )}
+            </>
           )}
 
           {/* Sección para Calificar o Ajustar Nota (Solo para Profesores / Administradores) */}
